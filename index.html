@@ -335,58 +335,97 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
   .btn-sec{min-height:44px}
   .btn-auth,.btn-annual,.btn-settings{min-height:40px}
 
-  /* ── Lignes catégories/descriptions générées en JS ── */
-  .s-row{
-    flex-wrap:wrap !important;
-    gap:6px !important;
-  }
-  /* Input nom : pleine largeur */
-  .s-row .form-in[id^="sn_"]{
-    flex:1 1 calc(100% - 44px) !important;
-    min-width:0 !important;
-  }
-  /* Select groupe : pleine largeur */
-  .s-row .form-in[id^="sg_"]{
-    width:100% !important;
-    flex:1 1 100% !important;
-    flex-shrink:1 !important;
-  }
-  /* Bouton supprimer aligné à droite */
-  .s-row .s-del{
-    margin-left:auto;
-  }
-
-  /* ── Lignes descriptions générées en JS ── */
-  .s-row-desc{
-    flex-wrap:wrap !important;
-    gap:6px !important;
-  }
-  .s-row-desc .form-in{
-    width:100% !important;
-    min-width:0 !important;
-  }
-
-  /* ── Lignes livrets ── */
-  #livretSettingsList .livret-edit-wrap{
-    flex-wrap:wrap;
-    gap:6px;
-  }
-  #livretSettingsList .livret-input{
-    width:100% !important;
-  }
-
-  /* settingsPanel : pas de dépassement */
-  #settingsPanel{
-    overflow:hidden;
-  }
-  #settingsPanel .panel{
-    overflow:hidden;
-  }
+  /* ── settingsPanel : pas de dépassement ── */
+  #settingsPanel{ overflow:hidden; }
+  #settingsPanel .panel{ overflow:hidden; }
   #catList > div,
   #descList > div,
-  #livretSettingsList > div{
-    max-width:100%;
+  #livretSettingsList > div{ max-width:100%; overflow:hidden; }
+
+  /* ══ CATÉGORIES : ligne sur 2 rangées, croix sur la 1ère rangée ══
+     Rangée 1 : [icône][input nom][×]
+     Rangée 2 : [select groupe — pleine largeur]
+  */
+  #catList .s-row{
+    display:grid !important;
+    grid-template-columns:auto 1fr auto !important;
+    grid-template-rows:auto auto !important;
+    gap:6px 6px !important;
+    align-items:center !important;
+    padding:8px 10px !important;
+  }
+  /* Icône emoji → col1 row1 */
+  #catList .s-row > div:first-child{
+    grid-column:1; grid-row:1;
+  }
+  /* Input nom → col2 row1, pleine largeur */
+  #catList .s-row .form-in[id^="sn_"]{
+    grid-column:2; grid-row:1;
+    width:100% !important; min-width:0 !important;
+  }
+  /* Bouton × → col3 row1, même ligne que le nom */
+  #catList .s-row .s-del{
+    grid-column:3; grid-row:1;
+  }
+  /* Select groupe → row2, s'étire sur toutes les colonnes */
+  #catList .s-row .form-in[id^="sg_"]{
+    grid-column:1 / -1; grid-row:2;
+    width:100% !important; min-width:0 !important;
+  }
+
+  /* ══ ÉPARGNE CONSTITUÉE : ligne sur 2 rangées, croix sur la 1ère rangée ══
+     Rangée 1 : [🏦][input nom][×]
+     Rangée 2 : [input solde — pleine largeur]
+  */
+  #livretSettingsList .s-row{
+    display:grid !important;
+    grid-template-columns:auto 1fr auto !important;
+    grid-template-rows:auto auto !important;
+    gap:6px 6px !important;
+    align-items:center !important;
+    padding:8px 10px !important;
+  }
+  /* Icône 🏦 → col1 row1 */
+  #livretSettingsList .s-row > span:first-child{
+    grid-column:1; grid-row:1;
+  }
+  /* Input nom → col2 row1 */
+  #livretSettingsList .s-row .form-in[id^="lname_"]{
+    grid-column:2; grid-row:1;
+    width:100% !important; min-width:0 !important;
+  }
+  /* Bouton × → col3 row1, même ligne que le nom */
+  #livretSettingsList .s-row .s-del{
+    grid-column:3; grid-row:1;
+  }
+  /* Input solde → row2, pleine largeur */
+  #livretSettingsList .s-row .form-in[id^="lamt_"]{
+    grid-column:1 / -1; grid-row:2;
+    width:100% !important; min-width:0 !important;
+  }
+
+  /* ══ DESCRIPTIONS : déjà bien disposées, on s'assure juste que ça tient ══ */
+  #descList .s-row{
+    display:flex !important;
+    flex-wrap:nowrap !important;
+    align-items:center !important;
+    gap:6px !important;
     overflow:hidden;
+  }
+  #descList .s-row .form-in[id^="dl_"]{
+    flex:1 1 0 !important;
+    min-width:0 !important;
+    width:0 !important;
+  }
+  #descList .s-row span{
+    flex-shrink:0;
+    max-width:70px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  #descList .s-row .s-del{
+    flex-shrink:0;
   }
 }
 </style>
