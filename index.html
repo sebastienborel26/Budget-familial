@@ -247,13 +247,67 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
   .donut-box{width:140px;height:140px}
   .legend{width:100%;min-width:unset}
 
-  /* ── Paramètres — listes catégories/descriptions ── */
+  /* ── Paramètres — listes catégories/descriptions/livrets ── */
   #catList,
   #descList,
-  #livretSettingsList{grid-template-columns:1fr 1fr !important}
+  #livretSettingsList{grid-template-columns:1fr !important}
 
-  /* ── Settings : nouvelle catégorie / description / livret ── */
+  /* Contenu des cartes catégorie en colonne */
+  #catList > div,
+  #descList > div,
+  #livretSettingsList > div{
+    width:100% !important;
+    min-width:0 !important;
+    box-sizing:border-box;
+  }
+
+  /* Inputs inline qui dépassent */
+  #catList input,
+  #catList select,
+  #descList input,
+  #descList select,
+  #livretSettingsList input,
+  #livretSettingsList select{
+    width:100% !important;
+    min-width:0 !important;
+    box-sizing:border-box;
+    font-size:13px;
+  }
+
+  /* Formulaires "Nouvelle catégorie / description / livret" */
   .panel [style*="display:flex;gap:8px"]{flex-direction:column}
+
+  /* Inputs dans les formulaires d'ajout */
+  #nCatName,#nDescLabel,#nLivretName{
+    min-width:0 !important;
+    width:100% !important;
+  }
+  #nCatGroup,#nDescCat{
+    width:100% !important;
+    flex-shrink:1 !important;
+  }
+  #nLivretAmt{
+    width:100% !important;
+    flex-shrink:1 !important;
+  }
+
+  /* Ligne de chaque catégorie/description dans la liste : en colonne */
+  #catList .s-row,
+  #descList .s-row{
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  #catList .s-row input,
+  #catList .s-row select{
+    flex:1 1 100%;
+    min-width:0;
+  }
+
+  /* Bouton ajouter pleine largeur */
+  #settingsPanel .btn-save.btn-sm{
+    width:100%;
+    justify-content:center;
+  }
 
   /* ── Bilan annuel : grille mois ── */
   .annual-month-grid{grid-template-columns:1fr 1fr !important;gap:10px}
@@ -280,6 +334,60 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
   .btn-save{min-height:44px}
   .btn-sec{min-height:44px}
   .btn-auth,.btn-annual,.btn-settings{min-height:40px}
+
+  /* ── Lignes catégories/descriptions générées en JS ── */
+  .s-row{
+    flex-wrap:wrap !important;
+    gap:6px !important;
+  }
+  /* Input nom : pleine largeur */
+  .s-row .form-in[id^="sn_"]{
+    flex:1 1 calc(100% - 44px) !important;
+    min-width:0 !important;
+  }
+  /* Select groupe : pleine largeur */
+  .s-row .form-in[id^="sg_"]{
+    width:100% !important;
+    flex:1 1 100% !important;
+    flex-shrink:1 !important;
+  }
+  /* Bouton supprimer aligné à droite */
+  .s-row .s-del{
+    margin-left:auto;
+  }
+
+  /* ── Lignes descriptions générées en JS ── */
+  .s-row-desc{
+    flex-wrap:wrap !important;
+    gap:6px !important;
+  }
+  .s-row-desc .form-in{
+    width:100% !important;
+    min-width:0 !important;
+  }
+
+  /* ── Lignes livrets ── */
+  #livretSettingsList .livret-edit-wrap{
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  #livretSettingsList .livret-input{
+    width:100% !important;
+  }
+
+  /* settingsPanel : pas de dépassement */
+  #settingsPanel{
+    overflow:hidden;
+  }
+  #settingsPanel .panel{
+    overflow:hidden;
+  }
+  #catList > div,
+  #descList > div,
+  #livretSettingsList > div{
+    max-width:100%;
+    overflow:hidden;
+  }
 }
 </style>
 </head>
