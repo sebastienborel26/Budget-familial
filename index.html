@@ -150,6 +150,137 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
 @media(max-width:1100px){.summary-row{grid-template-columns:1fr 1fr 1fr}.grid3{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.main,header{padding-left:20px;padding-right:20px}.summary-row{grid-template-columns:1fr 1fr}.grid2,.grid3{grid-template-columns:1fr}.tx-row{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.summary-row{grid-template-columns:1fr}.tx-row{grid-template-columns:1fr}}
+
+/* ═══════════════════════════════════════════════
+   OPTIMISATION MOBILE — max-width: 480px
+   L'affichage desktop reste inchangé au-dessus
+   ═══════════════════════════════════════════════ */
+@media(max-width:480px){
+
+  /* ── Header ── */
+  header{
+    padding:16px 14px 0;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:10px;
+  }
+  .header-title h1{font-size:1.5rem}
+  .header-title p{font-size:12px}
+  .header-right{
+    width:100%;
+    display:grid;
+    grid-template-columns:1fr auto auto auto;
+    gap:6px;
+    align-items:center;
+  }
+  .period-sel{
+    grid-column:1 / -1;
+    justify-content:flex-start;
+    padding:7px 12px;
+  }
+  .btn-annual{
+    font-size:11px;
+    padding:7px 10px;
+    gap:4px;
+  }
+  .btn-auth{
+    font-size:11px;
+    padding:7px 10px;
+    gap:5px;
+  }
+  /* Masquer le label texte du bouton connexion sur mobile */
+  .btn-auth #authLabel{display:none}
+  .btn-settings{padding:8px 10px;font-size:16px}
+
+  /* ── Layout principal ── */
+  .main{padding:14px 14px 50px}
+
+  /* ── Cartes résumé ── */
+  .summary-row{
+    grid-template-columns:1fr 1fr !important;
+    gap:10px;
+    margin-bottom:16px;
+  }
+  .scard{padding:14px 14px}
+  .card-amount{font-size:1.4rem}
+  .card-label{font-size:9px;letter-spacing:1px}
+  /* Solde pleine largeur */
+  .scard-sol{grid-column:1 / -1}
+
+  /* ── Grilles ── */
+  .grid2,.grid3{grid-template-columns:1fr !important;gap:12px}
+  .cmp-row{grid-template-columns:1fr 1fr !important;gap:10px}
+  .ccard{padding:14px 14px}
+
+  /* ── Panels ── */
+  .panel{padding:16px 14px}
+  .sec-header{flex-direction:column;align-items:flex-start;gap:8px}
+  .sec-title{font-size:1rem}
+
+  /* ── Onglets ── */
+  .tabs{gap:4px}
+  .tab-btn{padding:6px 11px;font-size:11px}
+
+  /* ── Grille d'inputs budget ── */
+  .input-grid{grid-template-columns:1fr !important}
+  .input-row{padding:10px 12px}
+  .inp-field{font-size:15px} /* plus grand pour le touch */
+
+  /* ── Formulaire ajout transaction ── */
+  #addForm .tx-row{
+    display:flex !important;
+    flex-direction:column;
+    gap:8px;
+  }
+  #addForm .btn-save{width:100%;justify-content:center;padding:12px}
+
+  /* ── Tableau transactions ── */
+  .tx-table{font-size:12px}
+  .tx-table th,.tx-table td{padding:7px 8px}
+  /* Masquer colonne "Catégorie" sur mobile, trop étroit */
+  .tx-table th:nth-child(3),.tx-table td:nth-child(3){display:none}
+  /* Bouton supprimer plus facile à toucher */
+  .s-del{font-size:20px;padding:4px 8px}
+
+  /* ── Donut chart ── */
+  .donut-wrap{flex-direction:column;align-items:center;gap:14px}
+  .donut-box{width:140px;height:140px}
+  .legend{width:100%;min-width:unset}
+
+  /* ── Paramètres — listes catégories/descriptions ── */
+  #catList,
+  #descList,
+  #livretSettingsList{grid-template-columns:1fr 1fr !important}
+
+  /* ── Settings : nouvelle catégorie / description / livret ── */
+  .panel [style*="display:flex;gap:8px"]{flex-direction:column}
+
+  /* ── Bilan annuel : grille mois ── */
+  .annual-month-grid{grid-template-columns:1fr 1fr !important;gap:10px}
+  .amonth-card{padding:12px 12px}
+
+  /* ── Tables annuelles ── */
+  .annual-cat-table{font-size:12px}
+  .annual-cat-table th,.annual-cat-table td{padding:7px 8px}
+
+  /* ── Emoji picker ── */
+  .emoji-picker{width:calc(100vw - 28px);left:0}
+
+  /* ── Livrets ── */
+  .livret-input{width:90px}
+
+  /* ── Bouton Bilan annuel : texte court ── */
+  .btn-annual::after{content:''}
+  .btn-annual span{display:none}
+
+  /* ── Scroll plus confortable ── */
+  .cat-list{max-height:220px}
+
+  /* ── Boutons principaux plus grands au touch ── */
+  .btn-save{min-height:44px}
+  .btn-sec{min-height:44px}
+  .btn-auth,.btn-annual,.btn-settings{min-height:40px}
+}
 </style>
 </head>
 <body>
