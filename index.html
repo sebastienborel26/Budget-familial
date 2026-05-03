@@ -460,6 +460,8 @@ const provider = new GoogleAuthProvider();
 let currentUser = null;
 let saveTimeout = null;
 let unsubSnapshot = null;
+let userIsTyping = false;   // bloque le refresh Firebase pendant la saisie
+let typingTimeout = null;
 
 function setSyncDot(state){ // 'idle' | 'syncing' | 'synced' | 'error'
   const d = document.getElementById('syncDot');
@@ -1158,7 +1160,30 @@ function renderAnnual(){
   renderCatTable('annualVarTable','variables');
 }
 
-window.addEventListener('DOMContentLoaded',init);
+// Détection saisie : bloquer refresh Firebase pendant la frappe
+function setupTypingDetection(){
+  document.addEventListener('focusin', function(e){
+    if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.tagName==='TEXTAREA'){
+      userIsTyping = true;
+      if(typingTimeout) clearTimeout(typingTimeout);
+    }
+  });
+  document.addEventListener('focusout', function(e){
+    if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.tagName==='TEXTAREA'){
+      // Attendre 3s après la dernière saisie avant de réactiver le refresh
+      if(typingTimeout) clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(()=>{ userIsTyping = false; }, 3000);
+    }
+  });
+  // Bloquer aussi pendant l'ajout d'une transaction
+  document.addEventListener('keydown', function(){
+    userIsTyping = true;
+    if(typingTimeout) clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(()=>{ userIsTyping = false; }, 3000);
+  });
+}
+
+window.addEventListener('DOMContentLoaded',()=>{ init(); setupTypingDetection(); });
 </script>
 </body>
 </html>
