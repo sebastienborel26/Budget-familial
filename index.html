@@ -493,9 +493,42 @@ async function loadFromFirebase(){
       if(d.cats)     cats     = d.cats;
       if(d.descs)    descs    = d.descs;
       if(d.livrets)  livrets  = d.livrets;
+      // Synchroniser aussi le localStorage
+      try{
+        localStorage.setItem('bf3_data',JSON.stringify(allData));
+        localStorage.setItem('bf3_cats',JSON.stringify(cats));
+        localStorage.setItem('bf3_descs',JSON.stringify(descs));
+        localStorage.setItem('bf3_livrets',JSON.stringify(livrets));
+      }catch(e2){}
     }
     setSyncDot('synced');
     setTimeout(()=>setSyncDot('idle'), 2000);
+    // Écoute temps réel : toute modif depuis un autre appareil rafraîchit l'UI
+    if(unsubSnapshot) unsubSnapshot();
+    unsubSnapshot = onSnapshot(
+      doc(fbDb, 'users', currentUser.uid, 'budget', 'data'),
+      (snapRT) => {
+        if(!snapRT.exists()) return;
+        const d = snapRT.data();
+        if(d.allData)  allData  = d.allData;
+        if(d.cats)     cats     = d.cats;
+        if(d.descs)    descs    = d.descs;
+        if(d.livrets)  livrets  = d.livrets;
+        // Reconstruire l'UI en temps réel
+        ['revenusInputs','fixesInputs','variablesInputs','epargneInputs'].forEach(id=>{
+          const el=document.getElementById(id); if(el) el.innerHTML='';
+        });
+        buildInputs();
+        loadPeriodInputs();
+        buildTxSelects();
+        renderLivrets();
+        updateAll();
+        updateLabel();
+        setSyncDot('synced');
+        setTimeout(()=>setSyncDot('idle'), 2000);
+      },
+      (err) => { console.error('Snapshot error', err); setSyncDot('error'); }
+    );
     return true;
   } catch(e){
     console.error('Firebase load error', e);
@@ -541,13 +574,30 @@ onAuthStateChanged(fbAuth, async (user) => {
   if(user){
     const loaded = await loadFromFirebase();
     if(loaded){
-      rebuildInputs();
+      // Reconstruction complète de l'UI avec les données Firebase
+      ['revenusInputs','fixesInputs','variablesInputs','epargneInputs'].forEach(id=>{
+        const el=document.getElementById(id); if(el) el.innerHTML='';
+      });
+      buildInputs();
+      loadPeriodInputs();
       buildTxSelects();
       renderLivrets();
       renderLivretSettings();
       updateAll();
       updateLabel();
     }
+  } else {
+    // Déconnexion : recharger depuis localStorage
+    loadStorage();
+    ['revenusInputs','fixesInputs','variablesInputs','epargneInputs'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.innerHTML='';
+    });
+    buildInputs();
+    loadPeriodInputs();
+    buildTxSelects();
+    renderLivrets();
+    updateAll();
+    updateLabel();
   }
 });
 // ─── END FIREBASE ────────────────────────────────────────────
