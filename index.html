@@ -472,6 +472,8 @@ function setSyncDot(state){ // 'idle' | 'syncing' | 'synced' | 'error'
 async function saveToFirebase(){
   if(!currentUser) return;
   setSyncDot('syncing');
+  // Marquer le timestamp local AVANT la sauvegarde
+  if(window._setLastLocalSave) window._setLastLocalSave();
   try {
     await setDoc(doc(fbDb, 'users', currentUser.uid, 'budget', 'data'), {
       allData, cats, descs, livrets, updatedAt: Date.now()
@@ -505,27 +507,27 @@ async function loadFromFirebase(){
     }
     setSyncDot('synced');
     setTimeout(()=>setSyncDot('idle'), 2000);
-    // Écoute temps réel : toute modif depuis un autre appareil rafraîchit l'UI
+    // Écoute temps réel — ignore les saves locaux, réagit aux autres appareils
     if(unsubSnapshot) unsubSnapshot();
+    let lastLocalSave = 0;
+    window._setLastLocalSave = () => { lastLocalSave = Date.now(); };
+
     unsubSnapshot = onSnapshot(
       doc(fbDb, 'users', currentUser.uid, 'budget', 'data'),
       (snapRT) => {
         if(!snapRT.exists()) return;
+        // Ignorer si c'est notre propre sauvegarde (fenêtre de 5s)
+        if(Date.now() - lastLocalSave < 5000) return;
         const d = snapRT.data();
         if(d.allData)  allData  = d.allData;
         if(d.cats)     cats     = d.cats;
         if(d.descs)    descs    = d.descs;
         if(d.livrets)  livrets  = d.livrets;
-        // Reconstruire l'UI en temps réel
         ['revenusInputs','fixesInputs','variablesInputs','epargneInputs'].forEach(id=>{
           const el=document.getElementById(id); if(el) el.innerHTML='';
         });
-        buildInputs();
-        loadPeriodInputs();
-        buildTxSelects();
-        renderLivrets();
-        updateAll();
-        updateLabel();
+        buildInputs(); loadPeriodInputs(); buildTxSelects();
+        renderLivrets(); updateAll(); updateLabel();
         setSyncDot('synced');
         setTimeout(()=>setSyncDot('idle'), 2000);
       },
