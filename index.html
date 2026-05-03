@@ -566,7 +566,31 @@ async function toggleAuth(){
     } catch(e){ console.error('Auth error', e); }
   }
 }
-window.toggleAuth = toggleAuth;
+// ─── Exposition de toutes les fonctions appelées via onclick dans le HTML ───
+window.toggleAuth        = toggleAuth;
+window.onPeriodChange    = onPeriodChange;
+window.toggleSettings    = toggleSettings;
+window.toggleAnnual      = toggleAnnual;
+window.showSTab          = showSTab;
+window.showTab           = showTab;
+window.resetDefaults     = resetDefaults;
+window.toggleAddForm     = toggleAddForm;
+window.addTx             = addTx;
+window.deleteTx          = deleteTx;
+window.autoFillCat       = autoFillCat;
+window.togglePicker      = togglePicker;
+window.toggleNewCatPicker= toggleNewCatPicker;
+window.pickEmoji         = pickEmoji;
+window.addCat            = addCat;
+window.saveCatField      = saveCatField;
+window.delCat            = delCat;
+window.addDesc           = addDesc;
+window.saveDescField     = saveDescField;
+window.delDesc           = delDesc;
+window.renderDescList    = renderDescList;
+window.addLivret         = addLivret;
+window.saveLivret        = saveLivret;
+window.deleteLivret      = deleteLivret;
 
 onAuthStateChanged(fbAuth, async (user) => {
   currentUser = user;
