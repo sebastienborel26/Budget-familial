@@ -507,10 +507,27 @@ async function loadFromFirebase(){
     }
     setSyncDot('synced');
     setTimeout(()=>setSyncDot('idle'), 2000);
-    // Écoute temps réel — ignore les saves locaux, réagit aux autres appareils
+    // Écoute temps réel — ignore les saves locaux, reporte si saisie en cours
     if(unsubSnapshot) unsubSnapshot();
     let lastLocalSave = 0;
+    let pendingRemoteData = null;   // données distantes en attente
+    let applyRemoteTimeout = null;
     window._setLastLocalSave = () => { lastLocalSave = Date.now(); };
+
+    function applyRemoteData(d) {
+      if(d.allData)  allData  = d.allData;
+      if(d.cats)     cats     = d.cats;
+      if(d.descs)    descs    = d.descs;
+      if(d.livrets)  livrets  = d.livrets;
+      ['revenusInputs','fixesInputs','variablesInputs','epargneInputs'].forEach(id=>{
+        const el=document.getElementById(id); if(el) el.innerHTML='';
+      });
+      buildInputs(); loadPeriodInputs(); buildTxSelects();
+      renderLivrets(); updateAll(); updateLabel();
+      setSyncDot('synced');
+      setTimeout(()=>setSyncDot('idle'), 2000);
+      pendingRemoteData = null;
+    }
 
     unsubSnapshot = onSnapshot(
       doc(fbDb, 'users', currentUser.uid, 'budget', 'data'),
@@ -519,17 +536,20 @@ async function loadFromFirebase(){
         // Ignorer si c'est notre propre sauvegarde (fenêtre de 5s)
         if(Date.now() - lastLocalSave < 5000) return;
         const d = snapRT.data();
-        if(d.allData)  allData  = d.allData;
-        if(d.cats)     cats     = d.cats;
-        if(d.descs)    descs    = d.descs;
-        if(d.livrets)  livrets  = d.livrets;
-        ['revenusInputs','fixesInputs','variablesInputs','epargneInputs'].forEach(id=>{
-          const el=document.getElementById(id); if(el) el.innerHTML='';
-        });
-        buildInputs(); loadPeriodInputs(); buildTxSelects();
-        renderLivrets(); updateAll(); updateLabel();
-        setSyncDot('synced');
-        setTimeout(()=>setSyncDot('idle'), 2000);
+        // Si l'utilisateur est en train de saisir → stocker et reporter
+        if(userIsTyping) {
+          pendingRemoteData = d;
+          if(applyRemoteTimeout) clearTimeout(applyRemoteTimeout);
+          // Réessayer toutes les secondes jusqu'à ce que la saisie soit finie
+          applyRemoteTimeout = setInterval(() => {
+            if(!userIsTyping && pendingRemoteData) {
+              clearInterval(applyRemoteTimeout);
+              applyRemoteData(pendingRemoteData);
+            }
+          }, 1000);
+          return;
+        }
+        applyRemoteData(d);
       },
       (err) => { console.error('Snapshot error', err); setSyncDot('error'); }
     );
