@@ -699,10 +699,10 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
     </div>
     <div id="addForm" style="display:none;margin-bottom:16px;">
       <div class="tx-row">
-        <input  class="form-in" type="date"   id="txDate"/>
-        <select class="form-in"               id="txDesc" onchange="autoFillCat()"></select>
-        <select class="form-in"               id="txCat"></select>
-        <input  class="form-in" type="number" id="txAmt" placeholder="Montant €" step="0.01"/>
+        <input  class="form-in" type="date"   id="txDate"  onkeydown="if(event.key==='Enter')addTx()"/>
+        <select class="form-in"               id="txDesc" onchange="autoFillCat()" onkeydown="if(event.key==='Enter')addTx()"></select>
+        <select class="form-in"               id="txCat"  onkeydown="if(event.key==='Enter')addTx()"></select>
+        <input  class="form-in" type="number" id="txAmt" placeholder="Montant €" step="0.01" onkeydown="if(event.key==='Enter')addTx()"/>
         <button class="btn-save" onclick="addTx()" style="white-space:nowrap">✓ OK</button>
       </div>
     </div>
