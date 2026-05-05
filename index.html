@@ -1022,7 +1022,7 @@ function buildInputs(){
   cats.forEach(cat=>{
     const cEl=document.getElementById(ids[cat.group]);if(!cEl)return;
     const div=document.createElement('div');div.className='input-row';
-    const stepVal=cat.group==='revenu'?'0.01':'10';
+    const stepVal='0.01';
     div.innerHTML='<div class="input-top"><div class="inp-icon" style="background:'+cat.color+'22">'+cat.icon+'</div><div class="inp-meta"><div class="inp-label">'+cat.name+'</div><div class="inp-wrap"><span class="inp-cur">€</span><input class="inp-field" type="number" id="inp_'+cat.id+'" min="0" step="'+stepVal+'" placeholder="0" oninput="updateAll()" onchange="updateAll()"/></div></div></div><div id="sum_'+cat.id+'" class="inp-summary"></div>';
     cEl.appendChild(div);
     const v=pd.budgets[cat.id]||0;if(v){const el=document.getElementById('inp_'+cat.id);if(el)el.value=v;}
@@ -1117,7 +1117,7 @@ function loadPeriodInputs(){
     const el=document.getElementById('inp_'+cat.id);if(!el)return;
     if(pd.budgets[cat.id]>0){
       el.value=pd.budgets[cat.id];
-    } else if((cat.group==='fixes'||cat.group==='epargne')&&prevPd&&prevPd.budgets[cat.id]>0){
+    } else if((cat.group==='fixes'||cat.group==='epargne'||cat.group==='revenu')&&prevPd&&prevPd.budgets[cat.id]>0){
       el.value=prevPd.budgets[cat.id];
       pd.budgets[cat.id]=prevPd.budgets[cat.id];
     } else {
