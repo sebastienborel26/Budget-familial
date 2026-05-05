@@ -519,7 +519,7 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
         <div class="panel-title" style="margin-bottom:12px;">➕ Nouveau livret</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <input class="form-in" id="nLivretName" placeholder="Ex : Livret A Sébastien" style="flex:1;min-width:180px;"/>
-          <input class="form-in" id="nLivretAmt" placeholder="Solde €" type="number" min="0" step="100" style="width:130px;flex-shrink:0;"/>
+          <input class="form-in" id="nLivretAmt" placeholder="Solde €" type="number" min="0" step="0.01" style="width:130px;flex-shrink:0;"/>
           <button class="btn-save btn-sm" onclick="addLivret()">+ Ajouter</button>
         </div>
       </div>
@@ -990,7 +990,7 @@ let allData={};
 function periodKey(){return currentYear+'-'+String(currentMonth).padStart(2,'0');}
 function getPd(){const k=periodKey();if(!allData[k])allData[k]={budgets:{},transactions:[]};return allData[k];}
 function getCat(id){return cats.find(c=>c.id===id)||{name:'Inconnu',icon:'📦',color:'#6b7280',group:'variables'};}
-function fmt(n){return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);}
+function fmt(n){return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(n);}
 function getV(id){return parseFloat(document.getElementById('inp_'+id)?.value)||0;}
 
 function init(){
@@ -1017,7 +1017,8 @@ function buildInputs(){
   cats.forEach(cat=>{
     const cEl=document.getElementById(ids[cat.group]);if(!cEl)return;
     const div=document.createElement('div');div.className='input-row';
-    div.innerHTML='<div class="input-top"><div class="inp-icon" style="background:'+cat.color+'22">'+cat.icon+'</div><div class="inp-meta"><div class="inp-label">'+cat.name+'</div><div class="inp-wrap"><span class="inp-cur">€</span><input class="inp-field" type="number" id="inp_'+cat.id+'" min="0" step="10" placeholder="0" oninput="updateAll()" onchange="updateAll()"/></div></div></div><div id="sum_'+cat.id+'" class="inp-summary"></div>';
+    const stepVal=cat.group==='fixes'?'10':'0.01';
+    div.innerHTML='<div class="input-top"><div class="inp-icon" style="background:'+cat.color+'22">'+cat.icon+'</div><div class="inp-meta"><div class="inp-label">'+cat.name+'</div><div class="inp-wrap"><span class="inp-cur">€</span><input class="inp-field" type="number" id="inp_'+cat.id+'" min="0" step="'+stepVal+'" placeholder="0" oninput="updateAll()" onchange="updateAll()"/></div></div></div><div id="sum_'+cat.id+'" class="inp-summary"></div>';
     cEl.appendChild(div);
     const v=pd.budgets[cat.id]||0;if(v){const el=document.getElementById('inp_'+cat.id);if(el)el.value=v;}
   });
@@ -1031,7 +1032,7 @@ function renderLivrets(){
   el.innerHTML='';
   livrets.forEach(l=>{
     const row=document.createElement('div');row.className='livret-row';
-    row.innerHTML='<span class="livret-name">'+l.name+'</span><div class="livret-edit-wrap"><input class="livret-input" type="number" min="0" step="100" value="'+(l.amount||0)+'" id="dinp_'+l.id+'"/></div>';
+    row.innerHTML='<span class="livret-name">'+l.name+'</span><div class="livret-edit-wrap"><input class="livret-input" type="number" min="0" step="0.01" value="'+(l.amount||0)+'" id="dinp_'+l.id+'"/></div>';
     el.appendChild(row);
     const inp=row.querySelector('.livret-input');
     function saveDirect(){const idx=livrets.findIndex(x=>x.id===l.id);if(idx<0)return;livrets[idx].amount=parseFloat(inp.value)||0;saveStorage();updateLivretTotal();}
@@ -1048,7 +1049,7 @@ function renderLivretSettings(){
     const lid=l.id;
     const row=document.createElement('div');row.className='s-row';
     row.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 10px;';
-    row.innerHTML='<span style="font-size:16px;flex-shrink:0;">🏦</span><input class="form-in" id="lname_'+lid+'" style="flex:1;min-width:0;font-size:12px;padding:5px 8px;" placeholder="Nom du livret"/><input class="form-in" id="lamt_'+lid+'" style="width:110px;flex-shrink:0;font-size:12px;padding:5px 8px;" type="number" min="0" step="100" placeholder="Solde €"/><button class="s-del" title="Supprimer">×</button>';
+    row.innerHTML='<span style="font-size:16px;flex-shrink:0;">🏦</span><input class="form-in" id="lname_'+lid+'" style="flex:1;min-width:0;font-size:12px;padding:5px 8px;" placeholder="Nom du livret"/><input class="form-in" id="lamt_'+lid+'" style="width:110px;flex-shrink:0;font-size:12px;padding:5px 8px;" type="number" min="0" step="0.01" placeholder="Solde €"/><button class="s-del" title="Supprimer">×</button>';
     el.appendChild(row);
     const ni=document.getElementById('lname_'+lid);const ai=document.getElementById('lamt_'+lid);
     const delBtn=row.querySelector('.s-del');
