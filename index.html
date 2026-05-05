@@ -62,6 +62,10 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
 .donut-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
 .donut-center span{font-family:var(--font-d);font-size:1.1rem;display:block;line-height:1}
 .donut-center small{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+#donutTooltip{position:fixed;pointer-events:none;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 13px;font-size:12px;line-height:1.6;z-index:9999;display:none;box-shadow:0 4px 20px rgba(0,0,0,.4);min-width:160px}
+#donutTooltip .tt-type{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:2px}
+#donutTooltip .tt-cat{font-weight:600;color:var(--text)}
+#donutTooltip .tt-pct{margin-top:3px;font-size:13px;font-weight:700}
 .legend{flex:1;min-width:110px}
 .leg-item{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:11px}
 .leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
@@ -667,6 +671,7 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
     <div id="tabContent_epargne"   class="tab-content"><div class="input-grid" id="epargneInputs"></div></div>
   </div>
 
+  <div id="donutTooltip"><div class="tt-type" id="ttType"></div><div class="tt-cat" id="ttCat"></div><div class="tt-pct" id="ttPct"></div></div>
   <div class="grid3">
     <div class="panel">
       <div class="panel-title">Répartition des charges</div>
@@ -976,7 +981,7 @@ const EMOJI_SETS={
   '🛋️ Maison':['🛋️','🪑','🛏️','🪞','🪴','🖼️','💻','📱','📺','🔦','🪜','🧰','🔩','🪚'],
   '📦 Divers':['📦','📁','📂','🗂️','📌','📎','✂️','🗑️','🔐','🔒','⚙️','🔑','📮','❓'],
 };
-const CAT_COLORS=['#60a5fa','#f97316','#a78bfa','#34d399','#f472b6','#fbbf24','#22d3ee','#84cc16','#fb923c','#94a3b8'];
+const CAT_COLORS=['#60a5fa','#f97316','#a78bfa','#34d399','#f472b6','#fbbf24','#22d3ee','#84cc16','#fb923c','#94a3b8','#e879f9','#2dd4bf','#f43f5e','#4ade80','#facc15','#38bdf8','#c084fc','#fb7185','#a3e635','#67e8f9'];
 const MONTHS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const GRP_LABEL={revenu:'💰 Revenus',fixes:'🔒 Charges fixes',variables:'🔄 Charges variables',epargne:'🏦 Épargne'};
 
@@ -1176,9 +1181,53 @@ function renderDonut(tx,hasTx){
   const total=vals.reduce((a,b)=>a+b,0);
   document.getElementById('donutTotal').textContent=fmt(total);
   const svg=document.getElementById('donutSvg');svg.innerHTML='';
-  if(total===0){const ci=document.createElementNS('http://www.w3.org/2000/svg','circle');ci.setAttribute('cx','80');ci.setAttribute('cy','80');ci.setAttribute('r','62');ci.setAttribute('fill','none');ci.setAttribute('stroke','#2a2f42');ci.setAttribute('stroke-width','20');svg.appendChild(ci);}
-  else{const r=62,cx=80,cy=80,C=2*Math.PI*r;let off=0;list.forEach((cat,i)=>{if(!vals[i])return;const dash=vals[i]/total*C;const c=document.createElementNS('http://www.w3.org/2000/svg','circle');c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',r);c.setAttribute('fill','none');c.setAttribute('stroke',cat.color);c.setAttribute('stroke-width','20');c.setAttribute('stroke-dasharray',dash+' '+(C-dash));c.setAttribute('stroke-dashoffset',C/4-off);svg.appendChild(c);off+=dash;});const h=document.createElementNS('http://www.w3.org/2000/svg','circle');h.setAttribute('cx','80');h.setAttribute('cy','80');h.setAttribute('r','50');h.setAttribute('fill','var(--surface)');svg.appendChild(h);}
-  const sorted=list.map((c,i)=>({...c,val:vals[i]})).filter(c=>c.val>0).sort((a,b)=>b.val-a.val).slice(0,5);
+  const tt=document.getElementById('donutTooltip');
+  const grpLabel={fixes:'🔒 Charges fixes',variables:'🔄 Charges variables',epargne:'🏦 Épargne'};
+  if(total===0){
+    const ci=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    ci.setAttribute('cx','80');ci.setAttribute('cy','80');ci.setAttribute('r','62');
+    ci.setAttribute('fill','none');ci.setAttribute('stroke','#2a2f42');ci.setAttribute('stroke-width','20');
+    svg.appendChild(ci);
+  } else {
+    const r=62,cx=80,cy=80,C=2*Math.PI*r;let off=0;
+    list.forEach((cat,i)=>{
+      if(!vals[i])return;
+      const dash=vals[i]/total*C;
+      const pct=Math.round(vals[i]/total*100);
+      const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',r);
+      c.setAttribute('fill','none');c.setAttribute('stroke',cat.color);
+      c.setAttribute('stroke-width','20');
+      c.setAttribute('stroke-dasharray',dash+' '+(C-dash));
+      c.setAttribute('stroke-dashoffset',C/4-off);
+      c.style.cursor='pointer';c.style.transition='stroke-width .15s,opacity .15s';
+      c.addEventListener('mouseenter',e=>{
+        c.setAttribute('stroke-width','26');
+        document.getElementById('ttType').textContent=grpLabel[cat.group]||cat.group;
+        document.getElementById('ttCat').textContent=cat.icon+' '+cat.name;
+        document.getElementById('ttPct').textContent=pct+'%  –  '+fmt(vals[i]);
+        document.getElementById('ttPct').style.color=cat.color;
+        tt.style.display='block';
+      });
+      c.addEventListener('mousemove',e=>{
+        const pad=14;
+        let x=e.clientX+pad,y=e.clientY+pad;
+        if(x+180>window.innerWidth)x=e.clientX-180-pad;
+        if(y+90>window.innerHeight)y=e.clientY-90-pad;
+        tt.style.left=x+'px';tt.style.top=y+'px';
+      });
+      c.addEventListener('mouseleave',()=>{
+        c.setAttribute('stroke-width','20');
+        tt.style.display='none';
+      });
+      svg.appendChild(c);
+      off+=dash;
+    });
+    const h=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    h.setAttribute('cx','80');h.setAttribute('cy','80');h.setAttribute('r','50');
+    h.setAttribute('fill','var(--surface)');svg.appendChild(h);
+  }
+  const sorted=list.map((c,i)=>({...c,val:vals[i]})).filter(c=>c.val>0).sort((a,b)=>b.val-a.val);
   document.getElementById('donutLegend').innerHTML=sorted.map(c=>'<div class="leg-item"><div class="leg-dot" style="background:'+c.color+'"></div><span style="color:var(--muted);flex:1">'+c.icon+' '+c.name+'</span><span style="font-weight:500;font-size:11px">'+(total>0?Math.round(c.val/total*100):0)+'%</span></div>').join('');
 }
 
@@ -1276,7 +1325,9 @@ function addCat(){
   const name=document.getElementById('nCatName').value.trim();
   const group=document.getElementById('nCatGroup').value;
   if(!name){showSAlert('⚠ Saisissez un nom','warn');return;}
-  const id='cat_'+Date.now(),color=CAT_COLORS[cats.length%CAT_COLORS.length];
+  const id='cat_'+Date.now();
+  const usedColors=cats.map(c=>c.color);
+  const color=CAT_COLORS.find(c=>!usedColors.includes(c))||CAT_COLORS[cats.length%CAT_COLORS.length];
   cats.push({id,name,icon,color,group});descs[id]=[];
   document.getElementById('nCatName').value='';if(icoBtn){icoBtn.textContent='📦';delete icoBtn.dataset.icon;}
   saveStorage();rebuildInputs();buildTxSelects();renderCatList();showSAlert('✅ Catégorie "'+name+'" ajoutée','ok');
