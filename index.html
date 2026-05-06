@@ -1029,18 +1029,26 @@ function buildInputs(){
   });
 }
 
-function updateLivretTotal(){const total=livrets.reduce((s,l)=>s+(l.amount||0),0);const el=document.getElementById('livretTotal');if(el)el.textContent=fmt(total);}
+function getLivretAmounts(){const pd=getPd();if(!pd.livretAmounts)pd.livretAmounts={};return pd.livretAmounts;}
+function updateLivretTotal(){const la=getLivretAmounts();const total=livrets.reduce((s,l)=>s+(la[l.id]||0),0);const el=document.getElementById('livretTotal');if(el)el.textContent=fmt(total);}
 function renderLivrets(){
   const el=document.getElementById('livretsList');if(!el)return;
   if(!livrets.length){el.innerHTML='<p style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0;">Aucun livret — ajoutez-en dans les paramètres ⚙️</p>';document.getElementById('livretTotal').textContent='0 €';return;}
-  const total=livrets.reduce((s,l)=>s+(l.amount||0),0);
+  // Récupérer les montants de la période courante
+  const la=getLivretAmounts();
+  // Si la période courante n'a pas encore de montants, hériter du mois précédent
+  const prevKey=getPrevPeriodKey();
+  const prevPd=allData[prevKey]||null;
+  const prevLa=(prevPd&&prevPd.livretAmounts)||{};
+  livrets.forEach(l=>{if(la[l.id]===undefined){la[l.id]=prevLa[l.id]||l.amount||0;}});
+  const total=livrets.reduce((s,l)=>s+(la[l.id]||0),0);
   el.innerHTML='';
   livrets.forEach(l=>{
     const row=document.createElement('div');row.className='livret-row';
-    row.innerHTML='<span class="livret-name">'+l.name+'</span><div class="livret-edit-wrap"><input class="livret-input" type="number" min="0" step="0.01" value="'+(l.amount||0)+'" id="dinp_'+l.id+'"/></div>';
+    row.innerHTML='<span class="livret-name">'+l.name+'</span><div class="livret-edit-wrap"><input class="livret-input" type="number" min="0" step="0.01" value="'+(la[l.id]||0)+'" id="dinp_'+l.id+'"/></div>';
     el.appendChild(row);
     const inp=row.querySelector('.livret-input');
-    function saveDirect(){const idx=livrets.findIndex(x=>x.id===l.id);if(idx<0)return;livrets[idx].amount=parseFloat(inp.value)||0;saveStorage();updateLivretTotal();}
+    function saveDirect(){const curLa=getLivretAmounts();curLa[l.id]=parseFloat(inp.value)||0;saveStorage();updateLivretTotal();}
     inp.addEventListener('input',saveDirect);
     inp.addEventListener('change',saveDirect);
   });
@@ -1096,7 +1104,7 @@ function buildCatSelect(){
 }
 function autoFillCat(){const d=document.getElementById('txDesc');if(d.value)document.getElementById('txCat').value=d.value;}
 
-function onPeriodChange(){currentMonth=parseInt(document.getElementById('selMonth').value);currentYear=parseInt(document.getElementById('selYear').value);loadPeriodInputs();updateAll();updateLabel();if(document.getElementById('annualPanel').style.display!=='none')renderAnnual();}
+function onPeriodChange(){currentMonth=parseInt(document.getElementById('selMonth').value);currentYear=parseInt(document.getElementById('selYear').value);loadPeriodInputs();updateAll();updateLabel();renderLivrets();if(document.getElementById('annualPanel').style.display!=='none')renderAnnual();}
 function updateLabel(){document.getElementById('periodLabel').textContent='Tableau de bord · '+MONTHS[currentMonth-1]+' '+currentYear;}
 
 function saveStorage(){
