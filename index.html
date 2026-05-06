@@ -616,6 +616,15 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
       </table>
     </div>
   </div>
+
+  <!-- ÉPARGNE CONSTITUÉE — évolution annuelle -->
+  <div class="panel" style="margin-bottom:20px;" id="annualLivretsPanel">
+    <div class="sec-header">
+      <span class="sec-title">🏦 Épargne constituée — évolution annuelle</span>
+      <span id="annualLivretsLabel" style="font-size:13px;color:var(--muted)"></span>
+    </div>
+    <div id="annualLivretsContent"></div>
+  </div>
 </div>
 
 <!-- DASHBOARD -->
@@ -1518,7 +1527,90 @@ function renderAnnual(){
   }
   renderCatTable('annualFixTable','fixes');
   renderCatTable('annualVarTable','variables');
+  renderAnnualLivrets(year);
 }
+
+
+function renderAnnualLivrets(year){
+  const el=document.getElementById('annualLivretsContent');
+  const lbl=document.getElementById('annualLivretsLabel');
+  if(!el)return;
+  if(!livrets.length){el.innerHTML='<p style="color:var(--muted);font-size:13px;">Aucun livret configuré.</p>';return;}
+
+  // Trouver les données de référence : Décembre N-1
+  const prevYear=year-1;
+  const prevDecKey=prevYear+'-12';
+  const prevDecPd=allData[prevDecKey];
+  const prevLa=(prevDecPd&&prevDecPd.livretAmounts)||{};
+  const prevTotal=livrets.reduce((s,l)=>s+(prevLa[l.id]||0),0);
+
+  // Trouver le dernier mois avec des données livret pour l'année N
+  let lastMonth=0,lastLa={};
+  for(let m=12;m>=1;m--){
+    const k=year+'-'+String(m).padStart(2,'0');
+    const pd=allData[k];
+    if(pd&&pd.livretAmounts&&livrets.some(l=>pd.livretAmounts[l.id]>0)){
+      lastMonth=m;lastLa=pd.livretAmounts;break;
+    }
+  }
+
+  if(lbl){
+    if(lastMonth>0)lbl.textContent=MONTHS[lastMonth-1]+' '+year+' vs Décembre '+prevYear;
+    else lbl.textContent='Aucune donnée pour '+year;
+  }
+
+  if(lastMonth===0){el.innerHTML="<p style='color:var(--muted);font-size:13px;'>Aucune donnée d’épargne constituée pour "+year+".</p>";return;}
+
+  const curTotal=livrets.reduce((s,l)=>s+(lastLa[l.id]||0),0);
+  const totalDiff=curTotal-prevTotal;
+  const totalPct=prevTotal!==0?totalDiff/Math.abs(prevTotal)*100:null;
+  const totalUp=totalDiff>0;
+  const totalCol=totalDiff===0?'var(--muted)':totalUp?'var(--green)':'var(--red)';
+  const totalArrow=totalDiff===0?'→':totalUp?'▲':'▼';
+
+  // Tableau par livret
+  let rows='';
+  livrets.forEach(l=>{
+    const prev=prevLa[l.id]||0;
+    const cur=lastLa[l.id]||0;
+    const diff=cur-prev;
+    const pct=prev!==0?(diff/Math.abs(prev)*100):null;
+    const up=diff>0;
+    const col=diff===0?'var(--muted)':up?'var(--green)':'var(--red)';
+    const arrow=diff===0?'→':up?'▲':'▼';
+    rows+='<tr>'
+      +'<td><span style="margin-right:6px">🏦</span>'+l.name+'</td>'
+      +'<td style="text-align:right;color:var(--muted)">'+fmt(prev)+'</td>'
+      +'<td style="text-align:right;font-weight:600;color:var(--green)">'+fmt(cur)+'</td>'
+      +'<td style="text-align:right;font-weight:600;color:'+col+'">'+(diff>=0?'+':'')+fmt(diff)+'</td>'
+      +'<td style="text-align:right;font-weight:700;color:'+col+'">'+arrow+' '+(pct!==null?Math.abs(pct).toFixed(1)+'%':'N/A')+'</td>'
+      +'</tr>';
+  });
+
+  // Ligne total
+  rows+='<tr style="border-top:2px solid var(--border);font-weight:700;">'
+    +'<td style="color:var(--text)">Total</td>'
+    +'<td style="text-align:right;color:var(--muted)">'+fmt(prevTotal)+'</td>'
+    +'<td style="text-align:right;color:var(--green)">'+fmt(curTotal)+'</td>'
+    +'<td style="text-align:right;color:'+totalCol+'">'+(totalDiff>=0?'+':'')+fmt(totalDiff)+'</td>'
+    +'<td style="text-align:right;color:'+totalCol+'"><span style="font-size:1.1rem">'+totalArrow+'</span> '+(totalPct!==null?Math.abs(totalPct).toFixed(1)+'%':'N/A')+'</td>'
+    +'</tr>';
+
+  el.innerHTML='<table class="annual-cat-table" style="width:100%">'
+    +'<thead><tr>'
+    +'<th>Livret</th>'
+    +'<th style="text-align:right">Déc. '+prevYear+'</th>'
+    +'<th style="text-align:right">'+MONTHS[lastMonth-1]+' '+year+'</th>'
+    +'<th style="text-align:right">Évolution (€)</th>'
+    +'<th style="text-align:right">Évolution (%)</th>'
+    +'</tr></thead>'
+    +'<tbody>'+rows+'</tbody></table>';
+}
+
+// Sauvegarde forcée avant fermeture de page (évite perte si debounce pas écoulé)
+window.addEventListener('beforeunload', function(){
+  try{localStorage.setItem('bf3_data',JSON.stringify(allData));localStorage.setItem('bf3_cats',JSON.stringify(cats));localStorage.setItem('bf3_descs',JSON.stringify(descs));localStorage.setItem('bf3_livrets',JSON.stringify(livrets));}catch(e){}
+});
 
 // Détection saisie : bloquer refresh Firebase pendant la frappe
 function setupTypingDetection(){
