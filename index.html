@@ -754,6 +754,8 @@ let saveTimeout = null;
 let unsubSnapshot = null;
 let userIsTyping = false;   // bloque le refresh Firebase pendant la saisie
 let typingTimeout = null;
+// Sera surchargé par loadFromFirebase ; no-op par défaut
+window._setLastLocalSave = () => {};
 
 function setSyncDot(state){ // 'idle' | 'syncing' | 'synced' | 'error'
   const d = document.getElementById('syncDot');
@@ -764,12 +766,14 @@ function setSyncDot(state){ // 'idle' | 'syncing' | 'synced' | 'error'
 async function saveToFirebase(){
   if(!currentUser) return;
   setSyncDot('syncing');
-  // Marquer le timestamp local AVANT la sauvegarde
+  // Marquer le timestamp local AVANT la sauvegarde pour bloquer le onSnapshot
   if(window._setLastLocalSave) window._setLastLocalSave();
   try {
     await setDoc(doc(fbDb, 'users', currentUser.uid, 'budget', 'data'), {
       allData, cats, descs, livrets, updatedAt: Date.now()
     });
+    // Re-marquer APRÈS aussi pour couvrir le délai réseau
+    if(window._setLastLocalSave) window._setLastLocalSave();
     setSyncDot('synced');
     setTimeout(()=>setSyncDot('idle'), 2000);
   } catch(e){
@@ -804,6 +808,7 @@ async function loadFromFirebase(){
     let lastLocalSave = 0;
     let pendingRemoteData = null;   // données distantes en attente
     let applyRemoteTimeout = null;
+    // Exposer globalement dès maintenant avec fenêtre élargie à 10s
     window._setLastLocalSave = () => { lastLocalSave = Date.now(); };
 
     function applyRemoteData(d) {
@@ -825,8 +830,8 @@ async function loadFromFirebase(){
       doc(fbDb, 'users', currentUser.uid, 'budget', 'data'),
       (snapRT) => {
         if(!snapRT.exists()) return;
-        // Ignorer si c'est notre propre sauvegarde (fenêtre de 5s)
-        if(Date.now() - lastLocalSave < 5000) return;
+        // Ignorer si c'est notre propre sauvegarde (fenêtre de 10s)
+        if(Date.now() - lastLocalSave < 10000) return;
         const d = snapRT.data();
         // Si l'utilisateur est en train de saisir → stocker et reporter
         if(userIsTyping) {
