@@ -66,6 +66,13 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
 #donutTooltip .tt-type{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:2px}
 #donutTooltip .tt-cat{font-weight:600;color:var(--text)}
 #donutTooltip .tt-pct{margin-top:3px;font-size:13px;font-weight:700}
+#catDescTooltip{position:fixed;pointer-events:none;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:11px 14px;font-size:12px;line-height:1.5;z-index:9999;display:none;box-shadow:0 6px 24px rgba(0,0,0,.5);min-width:180px;max-width:260px}
+#catDescTooltip .ctt-header{display:flex;align-items:center;gap:7px;margin-bottom:8px;padding-bottom:7px;border-bottom:1px solid var(--border)}
+#catDescTooltip .ctt-icon{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+#catDescTooltip .ctt-name{font-weight:600;font-size:12px;color:var(--text)}
+#catDescTooltip .ctt-item{display:flex;align-items:center;gap:6px;padding:2px 0;color:var(--muted);font-size:11px}
+#catDescTooltip .ctt-item::before{content:'•';color:var(--border);font-size:14px;line-height:1}
+#catDescTooltip .ctt-empty{color:var(--muted);font-size:11px;font-style:italic}
 .legend{flex:1;min-width:110px}
 .leg-item{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:11px}
 .leg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
@@ -681,6 +688,7 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
   </div>
 
   <div id="donutTooltip"><div class="tt-type" id="ttType"></div><div class="tt-cat" id="ttCat"></div><div class="tt-pct" id="ttPct"></div></div>
+  <div id="catDescTooltip"><div class="ctt-header"><div class="ctt-icon" id="cttIcon"></div><span class="ctt-name" id="cttName"></span></div><div id="cttItems"></div></div>
   <div class="grid3">
     <div class="panel">
       <div class="panel-title">Répartition des charges</div>
@@ -1034,6 +1042,10 @@ function buildInputs(){
   const ids={revenu:'revenusInputs',fixes:'fixesInputs',variables:'variablesInputs',epargne:'epargneInputs'};
   Object.values(ids).forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
   const pd=getPd();
+  const tt=document.getElementById('catDescTooltip');
+  const ttIcon=document.getElementById('cttIcon');
+  const ttName=document.getElementById('cttName');
+  const ttItems=document.getElementById('cttItems');
   cats.forEach(cat=>{
     const cEl=document.getElementById(ids[cat.group]);if(!cEl)return;
     const div=document.createElement('div');div.className='input-row';
@@ -1041,6 +1053,30 @@ function buildInputs(){
     div.innerHTML='<div class="input-top"><div class="inp-icon" style="background:'+cat.color+'22">'+cat.icon+'</div><div class="inp-meta"><div class="inp-label">'+cat.name+'</div><div class="inp-wrap"><span class="inp-cur">€</span><input class="inp-field" type="number" id="inp_'+cat.id+'" min="0" step="'+stepVal+'" placeholder="0" oninput="updateAll()" onchange="updateAll()"/></div></div></div><div id="sum_'+cat.id+'" class="inp-summary"></div>';
     cEl.appendChild(div);
     const v=pd.budgets[cat.id]||0;if(v){const el=document.getElementById('inp_'+cat.id);if(el)el.value=v;}
+    // Tooltip descriptions au survol (uniquement pour fixes, variables, epargne)
+    if(cat.group!=='revenu'){
+      div.addEventListener('mouseenter',()=>{
+        const items=descs[cat.id]||[];
+        ttIcon.style.background=cat.color+'22';
+        ttIcon.textContent=cat.icon;
+        ttName.textContent=cat.name;
+        ttName.style.color=cat.color;
+        if(items.length){
+          ttItems.innerHTML=items.map(d=>'<div class="ctt-item">'+d+'</div>').join('');
+        } else {
+          ttItems.innerHTML='<div class="ctt-empty">Aucune description</div>';
+        }
+        tt.style.display='block';
+      });
+      div.addEventListener('mousemove',e=>{
+        const pad=14;
+        let x=e.clientX+pad,y=e.clientY+pad;
+        if(x+270>window.innerWidth)x=e.clientX-270-pad;
+        if(y+tt.offsetHeight>window.innerHeight)y=e.clientY-tt.offsetHeight-pad;
+        tt.style.left=x+'px';tt.style.top=y+'px';
+      });
+      div.addEventListener('mouseleave',()=>{tt.style.display='none';});
+    }
   });
 }
 
