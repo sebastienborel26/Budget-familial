@@ -123,7 +123,31 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
 .ep-btn:hover{background:var(--border)}
 .ep-section{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);width:100%;margin:6px 0 2px}
 .pos{color:var(--green)}.neg{color:var(--red)}
+/* Hide number input spinners in project section */
+#projectsPanel input[type=number]::-webkit-outer-spin-button,
+#projectsPanel input[type=number]::-webkit-inner-spin-button,
+#projectModal input[type=number]::-webkit-outer-spin-button,
+#projectModal input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#projectsPanel input[type=number],
+#projectModal input[type=number] {
+  -moz-appearance: textfield;
+}
+/* Also target dynamically created inputs via inline style containing proj patterns */
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+/* Project envelope card styles */
+.proj-card{background:var(--surface2);border:1px solid var(--border);border-radius:16px;padding:20px;position:relative;overflow:hidden;transition:border-color .2s;}
+.proj-card:hover{border-color:#3a4060}
+.proj-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0;background:var(--blue);}
+.proj-progress-track{height:10px;background:var(--border);border-radius:99px;overflow:hidden;margin:14px 0 8px;}
+.proj-progress-fill{height:100%;border-radius:99px;transition:width .8s cubic-bezier(.4,0,.2,1),background .3s;background:linear-gradient(90deg,var(--blue),var(--green));}
+.proj-progress-fill.complete{background:linear-gradient(90deg,var(--green),#4ade80);}
+.proj-actions{display:flex;gap:6px;margin-top:14px;}
+.proj-btn{flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:7px 10px;font-family:var(--font-b);font-size:11px;font-weight:500;cursor:pointer;transition:all .15s;text-align:center;}
+.proj-btn:hover{border-color:#4a5278;background:rgba(255,255,255,.04)}
+.proj-btn.danger:hover{border-color:var(--red);color:var(--red);background:rgba(248,113,113,.08)}
 .cmp-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:28px}
 .ccard{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px;position:relative;overflow:hidden;transition:border-color .2s;animation:fadeUp .4s ease both}
 .ccard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:16px 16px 0 0}
@@ -180,7 +204,7 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
   .header-right{
     width:100%;
     display:grid;
-    grid-template-columns:1fr auto auto auto;
+    grid-template-columns:1fr auto auto auto auto;
     gap:6px;
     align-items:center;
   }
@@ -465,6 +489,7 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
       <div class="sync-indicator" id="syncDot"></div>
     </button>
     <button class="btn-annual" id="btnAnnual" onclick="toggleAnnual()" title="Récapitulatif annuel">📊 Bilan annuel</button>
+    <button class="btn-annual" id="btnProjects" onclick="toggleProjects()" title="Enveloppes projet">🎯 Projets</button>
     <button class="btn-settings" id="btnSettings" onclick="toggleSettings()" title="Paramètres">⚙️</button>
   </div>
 </header>
@@ -538,7 +563,98 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
   </div>
 </div>
 
-<!-- RÉCAPITULATIF ANNUEL -->
+<!-- ENVELOPPES PROJET -->
+<div id="projectsPanel" style="display:none;margin-bottom:20px;">
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="sec-header">
+      <span class="sec-title">🎯 Enveloppes Projet</span>
+      <button class="btn-save btn-sm" onclick="openNewProjectModal()" style="background:var(--blue);color:#0a1228;">+ Nouvelle enveloppe</button>
+    </div>
+    <!-- Cartes info : 4 cartes sur 2 lignes -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+
+      <!-- Carte 1 : Épargne totale du mois -->
+      <div class="scard scard-ep" style="animation:none;">
+        <div class="card-label">💰 Épargne totale du mois</div>
+        <div class="card-amount" id="projTotalEpargne" style="color:var(--yellow)">0 €</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;margin-bottom:8px;">
+          <span id="projCoveredAlert" style="font-size:11px;color:var(--muted);">Toutes catégories épargne confondues</span>
+        </div>
+        <div class="pbar-wrap"><div class="pbar" id="projCoveredBar" style="background:var(--yellow);width:0%"></div></div>
+        <div id="projCoveredPctLabel" style="font-size:11px;color:var(--muted);margin-top:6px;">0% alloué aux enveloppes</div>
+      </div>
+
+      <!-- Carte 2 : Épargne de précaution -->
+      <div class="scard scard-fix" style="animation:none;">
+        <div class="card-label">🛡️ Épargne de précaution</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <input type="number" id="projSafetyAmt" min="0" step="0.01" placeholder="0,00"
+            style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:6px 10px;color:var(--yellow);font-family:var(--font-d);font-size:1.3rem;font-weight:700;outline:none;width:100%;text-align:right;-moz-appearance:textfield;-webkit-appearance:none;"
+            oninput="onSafetyAmtChange(this.value)"
+            onchange="onSafetyAmtChange(this.value)"
+          />
+          <span style="font-size:14px;color:var(--muted);">€</span>
+        </div>
+        <div class="card-sub" id="projSafetySub">Déduit de l'épargne totale avant répartition</div>
+        <div class="pbar-wrap"><div class="pbar" id="projSafetyBar" style="background:#818cf8;width:0%"></div></div>
+      </div>
+
+      <!-- Carte 3 : Épargne disponible pour les enveloppes -->
+      <div class="scard scard-ep" style="animation:none;">
+        <div class="card-label">🎯 Disponible pour les enveloppes</div>
+        <div class="card-amount" id="projAvailableAmt" style="color:var(--green)">0 €</div>
+        <div class="card-sub" id="projAvailableSub">Épargne constituée − précaution</div>
+        <div class="pbar-wrap"><div class="pbar" id="projAvailableBar" style="background:var(--green);width:0%"></div></div>
+      </div>
+
+      <!-- Carte 4 : Répartition des allocations -->
+      <div class="scard scard-rev" style="animation:none;overflow:visible;">
+        <div class="card-label">📊 Répartition des allocations</div>
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
+          <div class="card-amount" id="projTotalPct" style="color:var(--green)">0%</div>
+          <div id="projPctAlert" style="font-size:11px;color:var(--muted);">alloués</div>
+        </div>
+        <div class="pbar-wrap" style="margin-bottom:12px;"><div class="pbar" id="projPctBar" style="background:var(--green);width:0%"></div></div>
+        <div id="projAllocationRows" style="margin-top:4px;"></div>
+      </div>
+
+    </div>
+    <!-- Liste des enveloppes -->
+    <div id="projectsList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;"></div>
+    <div id="projEmpty" style="text-align:center;padding:40px;color:var(--muted);font-size:13px;display:none;">
+      <div style="font-size:2rem;margin-bottom:12px;">🎯</div>
+      Aucune enveloppe projet. Créez votre première enveloppe pour organiser vos épargnes par projet !
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOUVELLE ENVELOPPE -->
+<div id="projectModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px);">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px;width:440px;max-width:calc(100vw - 32px);box-shadow:0 24px 80px rgba(0,0,0,.6);animation:fadeUp .25s ease;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+      <span style="font-family:var(--font-d);font-size:1.2rem;">Nouvelle enveloppe projet</span>
+      <button onclick="closeProjectModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;padding:2px 6px;border-radius:6px;">×</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:1px;">Nom du projet</div>
+        <input class="form-in" id="projNameIn" placeholder="Ex : Voyage au Japon, Cuisine neuve…" style="width:100%;"/>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:1px;">Montant total du projet (€)</div>
+        <input class="form-in" id="projAmtIn" type="number" min="0" step="0.01" placeholder="0.00" style="width:100%;"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:22px;justify-content:flex-end;">
+      <button class="btn-sec" onclick="closeProjectModal()">Annuler</button>
+      <button class="btn-save" onclick="saveNewProject()">✓ Créer l'enveloppe</button>
+    </div>
+  </div>
+</div>
+
+
+
+
 <div id="annualPanel" style="display:none;">
   <div class="summary-row" style="grid-template-columns:repeat(4,1fr);">
     <div class="scard scard-rev">
@@ -986,7 +1102,7 @@ const DEFAULT_DESCS={
   loisirs:['Sortir / Loisirs','Vacances','Loto'],
   maison:['Ameublement','Jardin','Achats Internet'],
   diversvar:['Frais Divers','Retrait Espèces'],
-  epargne:['Épargne Enfants','Épargne Parents'],
+  epargne:['Épargne Enfants'],
 };
 const DEFAULT_LIVRETS=[
   {id:'l1',name:'Livret A Sébastien',amount:0},
@@ -1023,14 +1139,21 @@ function getV(id){return parseFloat(document.getElementById('inp_'+id)?.value)||
 
 function init(){
   loadStorage();
+  loadProjects();
   buildYearSel();
   document.getElementById('selMonth').value=currentMonth;
   buildInputs();
   buildTxSelects();
-  updateAll();
+  // Pre-set baseline to a sentinel so updateProjectAmounts won't fire on load
+  _lastEpargneParents = -1;
+  updateAll(); // this calls updateProjectAmounts(ep) — delta = ep-(-1) but we block it below
   renderLivrets();
   document.getElementById('txDate').value=new Date().toISOString().split('T')[0];
   updateLabel();
+  // Baseline is already set by updateProjectAmounts sentinel guard
+  // Just restore safety input
+  const _safetyEl = document.getElementById('projSafetyAmt');
+  if(_safetyEl && _safetyAmt > 0) _safetyEl.value = _safetyAmt;
 }
 
 function buildYearSel(){
@@ -1128,10 +1251,10 @@ function saveLivretById(lid){
   const n=document.getElementById('lname_'+lid)?.value.trim();
   const a=parseFloat(document.getElementById('lamt_'+lid)?.value)||0;
   if(n)livrets[idx].name=n;livrets[idx].amount=a;
-  saveStorage();renderLivrets();showSAlert('✅ Livret mis à jour','ok');
+  saveStorage();renderLivrets();buildDescSelect();renderDescList();showSAlert('✅ Livret mis à jour','ok');
 }
 function saveLivret(i){saveLivretById(livrets[i]?.id);}
-function deleteLivretById(lid){const idx=livrets.findIndex(l=>l.id===lid);if(idx<0)return;if(!confirm('Supprimer "'+livrets[idx].name+'" ?'))return;livrets.splice(idx,1);saveStorage();renderLivrets();renderLivretSettings();showSAlert('🗑️ Livret supprimé','ok');}
+function deleteLivretById(lid){const idx=livrets.findIndex(l=>l.id===lid);if(idx<0)return;if(!confirm('Supprimer "'+livrets[idx].name+'" ?'))return;livrets.splice(idx,1);saveStorage();renderLivrets();renderLivretSettings();buildDescSelect();renderDescList();showSAlert('🗑️ Livret supprimé','ok');}
 function deleteLivret(i){deleteLivretById(livrets[i]?.id);}
 function addLivret(){
   const name=document.getElementById('nLivretName').value.trim();
@@ -1139,14 +1262,31 @@ function addLivret(){
   if(!name){showSAlert('⚠ Saisissez un nom','warn');return;}
   livrets.push({id:'l_'+Date.now(),name,amount});
   document.getElementById('nLivretName').value='';document.getElementById('nLivretAmt').value='';
-  saveStorage();renderLivrets();renderLivretSettings();showSAlert('✅ "'+name+'" ajouté','ok');
+  saveStorage();renderLivrets();renderLivretSettings();buildDescSelect();renderDescList();showSAlert('✅ "'+name+'" ajouté','ok');
 }
 
 function buildTxSelects(){buildDescSelect();buildCatSelect();}
 function buildDescSelect(){
   const sel=document.getElementById('txDesc');
   sel.innerHTML='<option value="">— Choisir une description —</option>';
-  cats.forEach(cat=>{const items=descs[cat.id]||[];if(!items.length)return;const og=document.createElement('optgroup');og.label=cat.icon+' '+cat.name;items.forEach(label=>{const o=document.createElement('option');o.value=cat.id;o.textContent=label;og.appendChild(o);});sel.appendChild(og);});
+  cats.forEach(cat=>{
+    let items;
+    if(cat.group==='epargne'){
+      const livretNames=livrets.map(l=>l.name);
+      const manualDescs=(descs[cat.id]||[]).filter(d=>!livretNames.includes(d));
+      items=[...livretNames,...manualDescs];
+    } else if(cat.group==='revenu'){
+      const livretAutoNames=livrets.map(l=>'Revenus '+l.name);
+      const manualDescs=(descs[cat.id]||[]).filter(d=>!livretAutoNames.includes(d));
+      items=[...livretAutoNames,...manualDescs];
+    } else {
+      items=descs[cat.id]||[];
+    }
+    if(!items.length)return;
+    const og=document.createElement('optgroup');og.label=cat.icon+' '+cat.name;
+    items.forEach(label=>{const o=document.createElement('option');o.value=cat.id;o.textContent=label;og.appendChild(o);});
+    sel.appendChild(og);
+  });
 }
 function buildCatSelect(){
   const sel=document.getElementById('txCat');sel.innerHTML='';
@@ -1155,7 +1295,7 @@ function buildCatSelect(){
 }
 function autoFillCat(){const d=document.getElementById('txDesc');if(d.value)document.getElementById('txCat').value=d.value;}
 
-function onPeriodChange(){currentMonth=parseInt(document.getElementById('selMonth').value);currentYear=parseInt(document.getElementById('selYear').value);loadPeriodInputs();updateAll();updateLabel();renderLivrets();if(document.getElementById('annualPanel').style.display!=='none')renderAnnual();}
+function onPeriodChange(){currentMonth=parseInt(document.getElementById('selMonth').value);currentYear=parseInt(document.getElementById('selYear').value);loadPeriodInputs();updateAll();updateLabel();renderLivrets();if(document.getElementById('annualPanel').style.display!=='none')renderAnnual();_lastEpargneParents=_cachedEpTotal;}
 function updateLabel(){document.getElementById('periodLabel').textContent='Tableau de bord · '+MONTHS[currentMonth-1]+' '+currentYear;}
 
 function saveStorage(){
@@ -1230,6 +1370,9 @@ function updateAll(){
   pEpBar.style.background=tEp>=20?'var(--green)':'var(--red)';
   autoSaveBudget();
   renderDonut(tx,hasTx);renderCatBars(tx,hasTx);refreshSummaries(tx);renderTxTable();
+  _cachedEpTotal = ep;
+  updateProjectAmounts(ep);
+  if(document.getElementById('projectsPanel')&&document.getElementById('projectsPanel').style.display!=='none') renderProjects(ep);
 }
 
 function autoSaveBudget(){const pd=getPd();cats.forEach(cat=>{const el=document.getElementById('inp_'+cat.id);if(el)pd.budgets[cat.id]=parseFloat(el.value)||0;});saveStorage();}
@@ -1328,9 +1471,37 @@ function addTx(){
   const amount=parseFloat(document.getElementById('txAmt').value);
   if(!date||!desc||desc==='— Choisir une description —'||isNaN(amount)||amount===0){showAlert('⚠ Veuillez remplir tous les champs','warn');return;}
   const pd=getPd();pd.transactions.push({date,desc,catId,amount});pd.transactions.sort((a,b)=>b.date.localeCompare(a.date));
-  document.getElementById('txAmt').value='';saveStorage();updateAll();toggleAddForm();
+  const cat=getCat(catId);
+  const la=getLivretAmounts();
+  if(cat.group==='epargne'){
+    // Épargne livret → incrémente le livret
+    const matchedLivret=livrets.find(l=>l.name===desc);
+    if(matchedLivret) la[matchedLivret.id]=(la[matchedLivret.id]||0)+Math.abs(amount);
+  } else if(cat.group==='revenu'){
+    // Revenus livret → décrémente le livret
+    const matchedLivret=livrets.find(l=>'Revenus '+l.name===desc);
+    if(matchedLivret) la[matchedLivret.id]=Math.max(0,(la[matchedLivret.id]||0)-Math.abs(amount));
+  }
+  document.getElementById('txAmt').value='';saveStorage();updateAll();renderLivrets();toggleAddForm();
 }
-function deleteTx(idx){const pd=getPd();pd.transactions.splice(idx,1);saveStorage();updateAll();}
+function deleteTx(idx){
+  const pd=getPd();
+  const tx=pd.transactions[idx];
+  if(tx){
+    const cat=getCat(tx.catId);
+    const la=getLivretAmounts();
+    if(cat.group==='epargne'){
+      // Annule l'incrément épargne
+      const matchedLivret=livrets.find(l=>l.name===tx.desc);
+      if(matchedLivret) la[matchedLivret.id]=Math.max(0,(la[matchedLivret.id]||0)-Math.abs(tx.amount));
+    } else if(cat.group==='revenu'){
+      // Annule le décrément revenus livret → réincrémente
+      const matchedLivret=livrets.find(l=>'Revenus '+l.name===tx.desc);
+      if(matchedLivret) la[matchedLivret.id]=(la[matchedLivret.id]||0)+Math.abs(tx.amount);
+    }
+  }
+  pd.transactions.splice(idx,1);saveStorage();updateAll();renderLivrets();
+}
 function renderTxTable(){
   const pd=getPd(),tbody=document.getElementById('txBody');
   if(!pd.transactions.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Aucun mouvement enregistré</td></tr>';return;}
@@ -1342,8 +1513,8 @@ function renderTxTable(){
 }
 
 function toggleSettings(){
-  const sp=document.getElementById('settingsPanel'),dp=document.getElementById('dashPanel'),ap=document.getElementById('annualPanel'),btn=document.getElementById('btnSettings'),btnA=document.getElementById('btnAnnual');
-  const open=sp.style.display==='none';sp.style.display=open?'block':'none';dp.style.display=open?'none':'block';ap.style.display='none';btn.classList.toggle('active',open);btnA.classList.remove('active');
+  const sp=document.getElementById('settingsPanel'),dp=document.getElementById('dashPanel'),ap=document.getElementById('annualPanel'),pp=document.getElementById('projectsPanel'),btn=document.getElementById('btnSettings'),btnA=document.getElementById('btnAnnual'),btnP=document.getElementById('btnProjects');
+  const open=sp.style.display==='none';sp.style.display=open?'block':'none';dp.style.display=open?'none':'block';ap.style.display='none';if(pp)pp.style.display='none';btn.classList.toggle('active',open);btnA.classList.remove('active');if(btnP)btnP.classList.remove('active');
   if(open){renderCatList();populateDescSelects();renderDescList();}
 }
 function showSTab(name){
@@ -1402,6 +1573,51 @@ function renderDescList(){
   el.innerHTML='';let count=0;
   cats.forEach(cat=>{
     if(filter&&cat.id!==filter)return;
+    // For revenu categories: show "Revenus [livret]" as auto rows first
+    if(cat.group==='revenu'){
+      const livretAutoNames=livrets.map(l=>'Revenus '+l.name);
+      livretAutoNames.forEach(name=>{
+        const row=document.createElement('div');row.className='s-row';row.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 10px;opacity:.75;';
+        row.innerHTML='<div class="d-dot" style="background:'+cat.color+';flex-shrink:0;"></div>'
+          +'<span style="flex:1;min-width:0;font-size:12px;color:var(--text);padding:5px 2px;">'+name+'</span>'
+          +'<span style="font-size:9px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 7px;white-space:nowrap;flex-shrink:0;">⚙ auto · livret</span>'
+          +'<span style="font-size:10px;color:var(--muted);white-space:nowrap;flex-shrink:0;">'+cat.icon+' '+cat.name+'</span>';
+        el.appendChild(row);count++;
+      });
+      const autoRevSet=new Set(livretAutoNames);
+      (descs[cat.id]||[]).forEach((label,j)=>{
+        if(autoRevSet.has(label))return;
+        const row=document.createElement('div');row.className='s-row';row.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 10px;';
+        row.innerHTML='<div class="d-dot" style="background:'+cat.color+';flex-shrink:0;"></div><input class="form-in" id="dl_'+cat.id+'_'+j+'" style="flex:1;min-width:0;font-size:12px;padding:5px 8px;" placeholder="Description"/><span style="font-size:10px;color:var(--muted);white-space:nowrap;flex-shrink:0;">'+cat.icon+' '+cat.name+'</span><button class="s-del" onclick="delDesc(\''+cat.id+'\','+j+')">×</button>';
+        el.appendChild(row);
+        const inp=document.getElementById('dl_'+cat.id+'_'+j);if(inp){inp.value=label;inp.onchange=function(){saveDescField(cat.id,j,this.value);};}
+        count++;
+      });
+      return;
+    }
+    // For épargne categories: show livret names as auto rows first
+    if(cat.group==='epargne'){
+      const livretNames=livrets.map(l=>l.name);
+      livretNames.forEach(name=>{
+        const row=document.createElement('div');row.className='s-row';row.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 10px;opacity:.75;';
+        row.innerHTML='<div class="d-dot" style="background:'+cat.color+';flex-shrink:0;"></div>'
+          +'<span style="flex:1;min-width:0;font-size:12px;color:var(--text);padding:5px 2px;">'+name+'</span>'
+          +'<span style="font-size:9px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:2px 7px;white-space:nowrap;flex-shrink:0;">⚙ auto · livret</span>'
+          +'<span style="font-size:10px;color:var(--muted);white-space:nowrap;flex-shrink:0;">'+cat.icon+' '+cat.name+'</span>';
+        el.appendChild(row);count++;
+      });
+      // Manual descs for this épargne cat (excluding any that duplicate a livret name)
+      const livretSet=new Set(livretNames);
+      (descs[cat.id]||[]).forEach((label,j)=>{
+        if(livretSet.has(label))return; // skip duplicates
+        const row=document.createElement('div');row.className='s-row';row.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 10px;';
+        row.innerHTML='<div class="d-dot" style="background:'+cat.color+';flex-shrink:0;"></div><input class="form-in" id="dl_'+cat.id+'_'+j+'" style="flex:1;min-width:0;font-size:12px;padding:5px 8px;" placeholder="Description"/><span style="font-size:10px;color:var(--muted);white-space:nowrap;flex-shrink:0;">'+cat.icon+' '+cat.name+'</span><button class="s-del" onclick="delDesc(\''+cat.id+'\','+j+')">×</button>';
+        el.appendChild(row);
+        const inp=document.getElementById('dl_'+cat.id+'_'+j);if(inp){inp.value=label;inp.onchange=function(){saveDescField(cat.id,j,this.value);};}
+        count++;
+      });
+      return;
+    }
     (descs[cat.id]||[]).forEach((label,j)=>{
       const row=document.createElement('div');row.className='s-row';row.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 10px;';
       row.innerHTML='<div class="d-dot" style="background:'+cat.color+';flex-shrink:0;"></div><input class="form-in" id="dl_'+cat.id+'_'+j+'" style="flex:1;min-width:0;font-size:12px;padding:5px 8px;" placeholder="Description"/><span style="font-size:10px;color:var(--muted);white-space:nowrap;flex-shrink:0;">'+cat.icon+' '+cat.name+'</span><button class="s-del" onclick="delDesc(\''+cat.id+'\','+j+')">×</button>';
@@ -1449,13 +1665,15 @@ function renderComparison(year, rev, fix, varv, ep){
 }
 
 function toggleAnnual(){
-  const ap=document.getElementById('annualPanel'),dp=document.getElementById('dashPanel'),sp=document.getElementById('settingsPanel'),btn=document.getElementById('btnAnnual'),btnS=document.getElementById('btnSettings');
+  const ap=document.getElementById('annualPanel'),dp=document.getElementById('dashPanel'),sp=document.getElementById('settingsPanel'),pp=document.getElementById('projectsPanel'),btn=document.getElementById('btnAnnual'),btnS=document.getElementById('btnSettings'),btnP=document.getElementById('btnProjects');
   const open=ap.style.display==='none';
   ap.style.display=open?'block':'none';
   dp.style.display=open?'none':'block';
   sp.style.display='none';
+  if(pp)pp.style.display='none';
   btn.classList.toggle('active',open);
   btnS.classList.remove('active');
+  if(btnP)btnP.classList.remove('active');
   if(open)renderAnnual();
 }
 
@@ -1677,7 +1895,464 @@ function setupTypingDetection(){
   });
 }
 
-window.addEventListener('DOMContentLoaded',()=>{ init(); setupTypingDetection(); });
+
+// ─── ENVELOPPES PROJET ─────────────────────────────────────────────────────
+let projects = [];
+let _lastEpargneParents = 0;
+let _safetyAmt = 0;       // épargne de précaution
+let _cachedEpTotal = 0;   // set by updateAll(), avoids DOM parsing
+
+function loadProjects(){
+  try{
+    const s = localStorage.getItem('bf3_projects');
+    if(s) projects = JSON.parse(s);
+    const sa = localStorage.getItem('bf3_safetyAmt');
+    if(sa) _safetyAmt = parseFloat(sa)||0;
+  }catch(e){}
+  // Restore safety input field
+  const safetyEl = document.getElementById('projSafetyAmt');
+  if(safetyEl) safetyEl.value = _safetyAmt > 0 ? _safetyAmt : '';
+  // NOTE: baseline calibrated in init() after buildInputs(), not here
+}
+
+function saveProjects(){
+  try{
+    localStorage.setItem('bf3_projects', JSON.stringify(projects));
+    localStorage.setItem('bf3_safetyAmt', String(_safetyAmt));
+  }catch(e){}
+  if(currentUser && typeof saveToFirebase==='function'){
+    if(saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveToFirebase, 1500);
+  }
+}
+
+// Total épargne toutes catégories (budget saisi ou transactions réelles)
+function getEpargneTotal(){
+  // Use the cached value set by updateAll — most reliable, no DOM parsing
+  return _cachedEpTotal || 0;
+}
+
+// Épargne disponible pour les enveloppes = total − précaution
+function getEpargneDisponible(){
+  return Math.max(0, getEpargneTotal() - _safetyAmt);
+}
+
+function onSafetyAmtChange(val){
+  _safetyAmt = parseFloat(val)||0;
+  _lastEpargneParents = _cachedEpTotal;
+  saveProjects();
+  renderProjects(_cachedEpTotal);
+}
+
+// Called by updateAll — detects change in épargne and increments project currentAmt
+function updateProjectAmounts(epBudget){
+  // epBudget = épargne mensuelle saisie dans le budget (passée depuis updateAll)
+  // C'est le delta de cette valeur qui déclenche l'incrémentation des enveloppes
+  const current = (epBudget !== undefined) ? epBudget : 0;
+
+  // Sentinel au chargement : calibrer sans incrémenter
+  if(_lastEpargneParents < 0){
+    _lastEpargneParents = current;
+    return;
+  }
+
+  if(Math.abs(current - _lastEpargneParents) < 0.001) return;
+  const delta = current - _lastEpargneParents;
+  _lastEpargneParents = current;
+  if(delta <= 0) return; // seulement incrémenter, jamais décrémenter
+
+  // Le delta à distribuer = portion du delta après déduction de la précaution
+  // Si épargne budget = 200 et précaution = 6000 (sur livrets), on distribue le delta brut
+  // car la précaution est déjà déduite dans "disponible" — ici on distribue ce qui est saisi
+  const toDistribute = delta;
+  if(toDistribute <= 0) return;
+
+  const period = periodKey();
+
+  // Distribution en boucle (gère les completions en cascade)
+  let remaining = toDistribute;
+  let iterations = 0;
+  while(Math.abs(remaining) > 0.001 && iterations < 20){
+    iterations++;
+    const active = projects.filter(p => !p.completed && (p.totalAmt||0) > 0 && (p.pct||0) > 0);
+    if(!active.length) break;
+
+    const totalPct = active.reduce((s,p) => s+(p.pct||0), 0);
+    let overflow = 0;
+    let anyCompleted = false;
+
+    active.forEach(p => {
+      const idx = projects.findIndex(x => x.id===p.id);
+      if(idx < 0) return;
+      const share     = totalPct > 0 ? remaining * (p.pct / totalPct) : 0;
+      const before    = projects[idx].currentAmt || 0;
+      const totalAmt  = projects[idx].totalAmt   || 0;
+      const headroom  = Math.max(0, totalAmt - before);
+      const realShare = Math.min(share, headroom);
+      overflow       += (share - realShare);
+
+      if(!projects[idx].monthlyAllocated) projects[idx].monthlyAllocated = {};
+      projects[idx].monthlyAllocated[period] = (projects[idx].monthlyAllocated[period]||0) + realShare;
+      projects[idx].currentAmt = before + realShare;
+
+      if(projects[idx].currentAmt >= totalAmt && totalAmt > 0){
+        projects[idx].currentAmt = totalAmt;
+        if(!projects[idx].completed){
+          projects[idx].completed = true;
+          anyCompleted = true;
+          const freedPct = projects[idx].pct || 0;
+          projects[idx].pct = 0;
+          if(freedPct > 0){
+            const others = projects.filter(q => !q.completed && (q.totalAmt||0) > 0 && q.id !== p.id);
+            if(others.length){
+              const bonus = freedPct / others.length;
+              others.forEach(q => { q.pct = parseFloat(((q.pct||0)+bonus).toFixed(2)); });
+            }
+          }
+        }
+      }
+    });
+
+    remaining = overflow;
+    if(!anyCompleted && overflow < 0.001) break;
+  }
+
+  saveProjects();
+}
+
+function toggleProjects(){
+  const pp  = document.getElementById('projectsPanel'),
+        dp  = document.getElementById('dashPanel'),
+        ap  = document.getElementById('annualPanel'),
+        sp  = document.getElementById('settingsPanel'),
+        btn = document.getElementById('btnProjects'),
+        btnA= document.getElementById('btnAnnual'),
+        btnS= document.getElementById('btnSettings');
+  const open = pp.style.display==='none';
+  pp.style.display = open ? 'block' : 'none';
+  dp.style.display = open ? 'none'  : 'block';
+  ap.style.display = 'none';
+  sp.style.display = 'none';
+  btn.classList.toggle('active', open);
+  btnA.classList.remove('active');
+  btnS.classList.remove('active');
+  if(open) renderProjects(_cachedEpTotal);
+}
+
+function openNewProjectModal(){
+  document.getElementById('projNameIn').value = '';
+  document.getElementById('projAmtIn').value  = '';
+  document.getElementById('projectModal').style.display = 'flex';
+  setTimeout(()=>document.getElementById('projNameIn').focus(), 50);
+}
+function closeProjectModal(){
+  document.getElementById('projectModal').style.display = 'none';
+}
+function saveNewProject(){
+  const name     = document.getElementById('projNameIn').value.trim();
+  const totalAmt = parseFloat(document.getElementById('projAmtIn').value)||0;
+  if(!name){ alert('Veuillez saisir un nom de projet'); return; }
+  projects.push({ id:'proj_'+Date.now(), name, totalAmt, currentAmt:0, pct:0, completed:false, monthlyAllocated:{}, createdAt:new Date().toISOString() });
+  saveProjects();
+  closeProjectModal();
+  renderProjects(_cachedEpTotal);
+}
+
+function deleteProject(id){
+  if(!confirm('Supprimer cette enveloppe projet ?')) return;
+  const proj    = projects.find(p=>p.id===id);
+  const freedPct= proj ? (proj.pct||0) : 0;
+  projects = projects.filter(p=>p.id!==id);
+  if(freedPct > 0){
+    const remaining = projects.filter(p=>!p.completed && (p.totalAmt||0)>0);
+    if(remaining.length){
+      const bonus = freedPct / remaining.length;
+      remaining.forEach(p=>{ p.pct = parseFloat(((p.pct||0)+bonus).toFixed(2)); });
+    }
+  }
+  saveProjects();
+  renderProjects(_cachedEpTotal);
+}
+
+function onProjPctChange(id, val){
+  const idx = projects.findIndex(p=>p.id===id);
+  if(idx<0) return;
+  projects[idx].pct = parseFloat(val)||0;
+  saveProjects();
+  // Update only the summary (total %, bar, alert) without re-rendering rows
+  // to avoid losing focus while typing
+  const period    = periodKey();
+  const available = getEpargneDisponible();
+  const totalPct  = projects.reduce((s,p)=>s+(p.pct||0), 0);
+  const pctEl     = document.getElementById('projTotalPct');
+  const pctAlert  = document.getElementById('projPctAlert');
+  const pctBar    = document.getElementById('projPctBar');
+  if(pctEl){ pctEl.textContent=totalPct.toFixed(1)+'%'; pctEl.style.color=Math.abs(totalPct-100)<0.5?'var(--green)':totalPct>100?'var(--red)':'var(--yellow)'; }
+  if(pctBar){ pctBar.style.width=Math.min(totalPct,100)+'%'; pctBar.style.background=totalPct>100?'var(--red)':Math.abs(totalPct-100)<0.5?'var(--green)':'var(--yellow)'; }
+  if(pctAlert){
+    const diff=100-totalPct;
+    if(totalPct>100)             pctAlert.innerHTML='<span style="color:var(--red);font-size:11px;">⚠ Dépasse 100%</span>';
+    else if(Math.abs(diff)<0.5)  pctAlert.innerHTML='<span style="color:var(--green);font-size:11px;">✓ Répartition parfaite</span>';
+    else                         pctAlert.innerHTML='<span style="font-size:11px;color:var(--muted);">'+diff.toFixed(1)+'% non alloués</span>';
+  }
+  // Update the monthly amount label in the same row without re-render
+  const rowsEl = document.getElementById('projAllocationRows');
+  if(rowsEl){
+    const rows = rowsEl.querySelectorAll('[data-proj-id]');
+    rows.forEach(row => {
+      if(row.dataset.projId === id){
+        const p = projects[idx];
+        const isComplete = p.completed || ((p.totalAmt||0)>0 && (p.currentAmt||0)>=(p.totalAmt||0));
+        const monthlyAllocated = (p.monthlyAllocated && p.monthlyAllocated[period]) || 0;
+        const monthlyAmt = monthlyAllocated > 0 ? monthlyAllocated : (available * (p.pct||0) / 100);
+        const isEstimated = monthlyAllocated===0 && !isComplete;
+        const subEl = row.querySelector('.alloc-sub');
+        if(subEl) subEl.innerHTML = fmt(monthlyAmt)+' ce mois'+(isEstimated?' <span style="opacity:.55">· estimé</span>':'');
+      }
+    });
+  }
+}
+
+function onProjCurAmtChange(id, val){
+  const idx = projects.findIndex(p=>p.id===id);
+  if(idx<0) return;
+  const v = parseFloat(val)||0;
+  projects[idx].currentAmt = v;
+  const totalAmt = projects[idx].totalAmt||0;
+  if(totalAmt > 0 && v >= totalAmt){
+    projects[idx].currentAmt = totalAmt;
+    if(!projects[idx].completed){
+      projects[idx].completed = true;
+      const freedPct = projects[idx].pct||0;
+      projects[idx].pct = 0;
+      if(freedPct > 0){
+        const others = projects.filter(p=>!p.completed && (p.totalAmt||0)>0 && p.id!==id);
+        if(others.length){
+          const bonus = freedPct / others.length;
+          others.forEach(p=>{ p.pct = parseFloat(((p.pct||0)+bonus).toFixed(2)); });
+        }
+      }
+    }
+  } else {
+    projects[idx].completed = false;
+  }
+  saveProjects();
+  renderProjects(_cachedEpTotal);
+}
+
+function renderAllocationCard(){
+  const period     = periodKey();
+  const available  = getEpargneDisponible();
+  const totalPct   = projects.reduce((s,p)=>s+(p.pct||0), 0);
+  const pctEl      = document.getElementById('projTotalPct');
+  const pctAlert   = document.getElementById('projPctAlert');
+  const pctBar     = document.getElementById('projPctBar');
+
+  if(pctEl){
+    pctEl.textContent = totalPct.toFixed(1)+'%';
+    pctEl.style.color = Math.abs(totalPct-100)<0.5 ? 'var(--green)' : totalPct>100 ? 'var(--red)' : 'var(--yellow)';
+  }
+  if(pctBar){
+    pctBar.style.width      = Math.min(totalPct,100)+'%';
+    pctBar.style.background = totalPct>100 ? 'var(--red)' : Math.abs(totalPct-100)<0.5 ? 'var(--green)' : 'var(--yellow)';
+  }
+  if(pctAlert){
+    const diff = 100 - totalPct;
+    if(totalPct>100)          pctAlert.innerHTML = '<span style="color:var(--red);font-size:11px;">⚠ Dépasse 100%</span>';
+    else if(Math.abs(diff)<0.5) pctAlert.innerHTML = '<span style="color:var(--green);font-size:11px;">✓ Répartition parfaite</span>';
+    else                       pctAlert.innerHTML = '<span style="font-size:11px;color:var(--muted);">'+diff.toFixed(1)+'% non alloués</span>';
+  }
+
+  const rowsEl = document.getElementById('projAllocationRows');
+  if(!rowsEl) return;
+  if(!projects.length){ rowsEl.innerHTML='<p style="color:var(--muted);font-size:12px;text-align:center;padding:8px 0;">Aucun projet créé</p>'; return; }
+
+  rowsEl.innerHTML = '';
+  projects.forEach(p => {
+    const pct        = p.pct||0;
+    const isComplete = p.completed || ((p.totalAmt||0)>0 && (p.currentAmt||0)>=(p.totalAmt||0));
+    const monthlyAllocated = (p.monthlyAllocated && p.monthlyAllocated[period]) || 0;
+    const monthlyAmt = monthlyAllocated > 0 ? monthlyAllocated : (available * pct / 100);
+    const isEstimated= monthlyAllocated===0 && !isComplete;
+    const row = document.createElement('div');
+    row.dataset.projId = p.id;
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(42,47,66,.5);';
+    row.innerHTML = `
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${isComplete?'color:var(--green)':''}">${isComplete?'✓ ':''} ${p.name}</div>
+        <div class="alloc-sub" style="font-size:10px;color:var(--muted);margin-top:1px;">${fmt(monthlyAmt)} ce mois${isEstimated?' <span style="opacity:.55">· estimé</span>':''}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+        <input type="number" min="0" max="100" step="1" value="${pct}"
+          ${isComplete?'disabled ':''}style="width:60px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:4px 6px;color:var(--text);font-family:var(--font-b);font-size:13px;font-weight:600;text-align:right;outline:none;-moz-appearance:textfield;-webkit-appearance:none;${isComplete?'opacity:.4;cursor:not-allowed;':'cursor:pointer;'}"
+          oninput="onProjPctChange('${p.id}',this.value)"
+        />
+        <span style="font-size:12px;color:var(--muted)">%</span>
+        <button onclick="deleteProject('${p.id}')" title="Supprimer cette enveloppe" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:6px;line-height:1;transition:color .15s,background .15s;margin-left:2px;" onmouseover="this.style.color='var(--red)';this.style.background='rgba(248,113,113,.1)';" onmouseout="this.style.color='var(--muted)';this.style.background='none';">✕</button>
+      </div>
+    `;
+    rowsEl.appendChild(row);
+  });
+}
+
+function renderProjects(epFromCaller){
+  const el        = document.getElementById('projectsList');
+  const emptyEl   = document.getElementById('projEmpty');
+  const period    = periodKey();
+  const safety    = _safetyAmt;
+  const totalPct  = projects.reduce((s,p)=>s+(p.pct||0), 0);
+
+  // Card 1: épargne mensuelle réelle = épargne budgétisée − retraits sur livrets (mouvements Revenus livret)
+  const _pdR = getPd(), _txR = txTotals(), _hasTxR = _pdR.transactions.length > 0;
+  const _epNum_brut = cats.filter(c=>c.group==='epargne')
+                         .reduce((s,c) => s + (_hasTxR ? (_txR[c.id]||0) : getV(c.id)), 0);
+  // Somme des retraits livrets saisis en Revenus ce mois
+  const _livretWithdrawals = _pdR.transactions
+    .filter(tx => { const cat=getCat(tx.catId); return cat.group==='revenu' && livrets.some(l=>'Revenus '+l.name===tx.desc); })
+    .reduce((s,tx) => s + Math.abs(tx.amount), 0);
+  const _epNum = Math.max(0, _epNum_brut - _livretWithdrawals);
+  _cachedEpTotal = _epNum;
+
+  // Card 3: total épargne constituée = somme des livrets du mois courant
+  const _la = getLivretAmounts();
+  const _livretNum = livrets.reduce((s,l) => s + (_la[l.id]||0), 0);
+  const _realAvailable = Math.max(0, _livretNum - safety);
+  const coveredPct = _livretNum > 0 ? Math.min(100, (_realAvailable * totalPct / 100) / _livretNum * 100) : 0;
+
+    // ── Card 1: épargne totale du mois
+  const totalEl = document.getElementById('projTotalEpargne');
+  if(totalEl) totalEl.textContent = fmt(_epNum);
+  const totalSub = document.getElementById('projTotalEpargneSub');
+  if(totalSub) totalSub.textContent = _livretWithdrawals > 0
+    ? 'Épargne budgétisée − '+fmt(_livretWithdrawals)+' retirés des livrets'
+    : 'Épargne mensuelle budgétisée';
+  const covBar = document.getElementById('projCoveredBar');
+  if(covBar){ covBar.style.width=coveredPct.toFixed(1)+'%'; covBar.style.background = coveredPct>=99.5?'var(--green)':'var(--yellow)'; }
+  const covAlert = document.getElementById('projCoveredAlert');
+  if(covAlert){
+    if(safety > 0) covAlert.textContent = fmt(_livretNum)+' livrets − '+fmt(safety)+' précaution = '+fmt(_realAvailable);
+    else           covAlert.textContent = 'Toutes catégories épargne confondues';
+  }
+  const covPctLbl = document.getElementById('projCoveredPctLabel');
+  if(covPctLbl){
+    const allocatedAmt = _realAvailable * totalPct / 100;
+    const pctOfTotal   = _livretNum > 0 ? (allocatedAmt / _livretNum * 100) : 0;
+    if(Math.abs(pctOfTotal-100)<0.5 && safety>0)
+      covPctLbl.innerHTML = '<span style="color:var(--green);">✓ 100% de l\'épargne allouée</span>';
+    else if(pctOfTotal >= 99.5)
+      covPctLbl.innerHTML = '<span style="color:var(--green);">✓ 100% de l\'épargne allouée</span>';
+    else
+      covPctLbl.innerHTML = '<span style="color:var(--muted);">'+pctOfTotal.toFixed(1)+'% alloué aux enveloppes</span>';
+  }
+
+  // ── Card 2: précaution ───────────────────────────────────────────────────
+  const safetyBar = document.getElementById('projSafetyBar');
+  if(safetyBar){ safetyBar.style.width = _livretNum>0?Math.min(100,safety/_livretNum*100).toFixed(1)+'%':'0%'; }
+  const safetySub = document.getElementById('projSafetySub');
+  if(safetySub){
+    if(safety > _livretNum && _livretNum > 0) safetySub.innerHTML = '<span style="color:var(--red);">⚠ Dépasse l\'épargne totale</span>';
+    else if(safety > 0)                 safetySub.textContent = fmt(safety)+' réservés · reste '+fmt(_realAvailable)+' pour les projets';
+    else                                safetySub.textContent = 'Déduit de l\'épargne totale avant répartition';
+  }
+
+  // ── Card 3: disponible (total - précaution) ─────────────────────────────
+  const availEl = document.getElementById('projAvailableAmt');
+  if(availEl){ availEl.textContent=fmt(_realAvailable); availEl.style.color=_realAvailable>0?'var(--green)':'var(--muted)'; }
+  const availSub3 = document.getElementById('projAvailableSub');
+  if(availSub3) availSub3.textContent = fmt(_livretNum) + ' (livrets) − ' + fmt(safety) + ' (précaution)';
+  const availBar = document.getElementById('projAvailableBar');
+  if(availBar){ availBar.style.width=_livretNum>0?Math.min(100,_realAvailable/_livretNum*100).toFixed(1)+'%':'0%'; availBar.style.background='var(--green)'; }
+
+  // ── Card 4: allocation ───────────────────────────────────────────────────
+  renderAllocationCard();
+
+  // ── Project cards ────────────────────────────────────────────────────────
+  if(!projects.length){ el.innerHTML=''; emptyEl.style.display='block'; return; }
+  emptyEl.style.display='none';
+  el.innerHTML='';
+  projects.forEach(p=>{
+    const curAmt   = p.currentAmt||0;
+    const totalAmt = p.totalAmt||0;
+    const pct      = p.pct||0;
+    const isComplete = p.completed||(totalAmt>0&&curAmt>=totalAmt);
+    const progress   = totalAmt>0 ? Math.min(100,curAmt/totalAmt*100) : 0;
+    const monthlyAllocated = (p.monthlyAllocated&&p.monthlyAllocated[period])||0;
+    const monthlyContrib   = monthlyAllocated>0 ? monthlyAllocated : (available*pct/100);
+    const isEstimated      = monthlyAllocated===0 && !isComplete;
+    const remaining  = Math.max(0, totalAmt-curAmt);
+    const monthsLeft = monthlyContrib>0 ? Math.ceil(remaining/monthlyContrib) : null;
+    const card = document.createElement('div');
+    card.className='proj-card';
+    if(isComplete) card.style.borderColor='rgba(110,231,183,.3)';
+    card.innerHTML=`
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:12px;">
+        <div>
+          <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${p.name}</div>
+          ${isComplete?'<span style="font-size:10px;background:rgba(110,231,183,.15);color:var(--green);border:1px solid rgba(110,231,183,.3);border-radius:99px;padding:2px 8px;letter-spacing:.5px;">✓ FINANCÉ</span>':''}
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-family:var(--font-d);font-size:1.1rem;color:${isComplete?'var(--green)':'var(--blue)'};">${fmt(curAmt)}</div>
+          <div style="font-size:11px;color:var(--muted);">/ ${fmt(totalAmt)}</div>
+        </div>
+      </div>
+      <div class="proj-progress-track">
+        <div class="proj-progress-fill${isComplete?' complete':''}" style="width:${progress.toFixed(1)}%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-size:11px;color:var(--muted);">${progress.toFixed(1)}% financé</span>
+        ${!isComplete&&monthsLeft!==null?`<span style="font-size:11px;color:var(--muted);">≈ ${monthsLeft} mois restants</span>`:''}
+        ${isComplete?'<span style="font-size:11px;color:var(--green);">🎉 Objectif atteint !</span>':''}
+      </div>
+      <div style="padding:10px;background:var(--surface);border-radius:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;">Alloué ce mois${isEstimated?' <span style="font-size:9px;opacity:.55">· estimé</span>':''}</div>
+          <div style="font-weight:600;font-size:13px;color:var(--yellow);">${pct}% · ${fmt(monthlyContrib)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;">Reste à financer</div>
+          <div style="font-weight:600;font-size:13px;color:${isComplete?'var(--green)':'var(--text)'};">${isComplete?'Financé !':fmt(remaining)}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:11px;color:var(--muted);white-space:nowrap;">Montant accumulé :</span>
+        <input type="number" min="0" step="0.01" value="${curAmt.toFixed(2)}"
+          style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 9px;color:var(--text);font-family:var(--font-d);font-size:13px;outline:none;text-align:right;-moz-appearance:textfield;-webkit-appearance:none;"
+          oninput="onProjCurAmtChange('${p.id}',this.value)"
+          onchange="onProjCurAmtChange('${p.id}',this.value)"
+        />
+        <span style="font-size:11px;color:var(--muted);">€</span>
+      </div>
+      <div class="proj-actions">
+        <button class="proj-btn danger" onclick="deleteProject('${p.id}')">🗑️ Supprimer</button>
+      </div>
+    `;
+    el.appendChild(card);
+  });
+}
+
+// Close modals on background click
+document.getElementById('projectModal').addEventListener('click', function(e){ if(e.target===this) closeProjectModal(); });
+// projEditModal removed
+
+// Stubs for legacy modal handlers (modal removed, kept for safety)
+function closeProjEditModal(){ const _m=document.getElementById('projEditModal'); if(_m) _m.style.display='none'; }
+function saveProjEdit(){ closeProjEditModal(); }
+window.closeProjEditModal  = closeProjEditModal;
+window.saveProjEdit        = saveProjEdit;
+
+// Expose to global scope
+window.toggleProjects      = toggleProjects;
+window.openNewProjectModal = openNewProjectModal;
+window.closeProjectModal   = closeProjectModal;
+window.saveNewProject      = saveNewProject;
+window.deleteProject       = deleteProject;
+window.onProjPctChange     = onProjPctChange;
+window.onProjCurAmtChange  = onProjCurAmtChange;
+window.onSafetyAmtChange   = onSafetyAmtChange;
+
+// ─── END ENVELOPPES PROJET ──────────────────────────────────────────────────
+
+window.addEventListener('DOMContentLoaded', ()=>{ init(); setupTypingDetection(); });
 </script>
 </body>
 </html>
