@@ -106,6 +106,8 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
 .tx-table tr:last-child td{border-bottom:none}.tx-table tr:hover td{background:rgba(255,255,255,.02)}
 .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:500}
 .alert{padding:12px 18px;border-radius:12px;font-size:13px;display:flex;align-items:center;gap:10px;margin-bottom:16px;border:1px solid}
+.bf-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;max-width:90vw;padding:12px 18px;border-radius:12px;font-size:13px;border:1px solid;background:var(--surface);box-shadow:0 8px 30px rgba(0,0,0,.45)}
+.bf-toast.ok{border-color:rgba(110,231,183,.35);color:var(--green)}.bf-toast.warn{border-color:rgba(251,191,36,.35);color:var(--yellow)}
 .alert-warn{background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.2);color:var(--yellow)}
 .alert-ok{background:rgba(110,231,183,.08);border-color:rgba(110,231,183,.2);color:var(--green)}
 .s-row{background:var(--surface2);border:1px solid var(--border);border-radius:12px}
@@ -204,7 +206,7 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
   .header-right{
     width:100%;
     display:grid;
-    grid-template-columns:1fr auto auto auto auto;
+    grid-template-columns:1fr auto auto auto auto auto;
     gap:6px;
     align-items:center;
   }
@@ -490,6 +492,9 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
     </button>
     <button class="btn-annual" id="btnAnnual" onclick="toggleAnnual()" title="Récapitulatif annuel">📊 Bilan annuel</button>
     <button class="btn-annual" id="btnProjects" onclick="toggleProjects()" title="Enveloppes projet">🎯 Projets</button>
+    <button class="btn-annual" id="btnBackup" onclick="exportBackup()" title="Télécharger une sauvegarde complète sur mon ordinateur">💾 <span>Sauvegarder</span></button>
+    <button class="btn-annual" id="btnRestore" onclick="document.getElementById('restoreFile').click()" title="Restaurer depuis un fichier de sauvegarde">📂 <span>Restaurer</span></button>
+    <input type="file" id="restoreFile" accept=".json,application/json" style="display:none" onchange="importBackup(this)"/>
     <button class="btn-settings" id="btnSettings" onclick="toggleSettings()" title="Paramètres">⚙️</button>
   </div>
 </header>
@@ -1037,6 +1042,8 @@ window.renderDescList    = renderDescList;
 window.addLivret         = addLivret;
 window.saveLivret        = saveLivret;
 window.deleteLivret      = deleteLivret;
+window.exportBackup      = exportBackup;
+window.importBackup      = importBackup;
 
 onAuthStateChanged(fbAuth, async (user) => {
   currentUser = user;
@@ -1071,6 +1078,71 @@ onAuthStateChanged(fbAuth, async (user) => {
   }
 });
 // ─── END FIREBASE ────────────────────────────────────────────
+
+// ─── SAUVEGARDE / RESTAURATION (fichier sur disque) ─────────
+function bfToast(msg,type){
+  const old=document.getElementById('bfToast');if(old)old.remove();
+  const t=document.createElement('div');t.id='bfToast';t.className='bf-toast '+(type||'ok');t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{if(t.parentNode)t.remove();},5000);
+}
+function exportBackup(){
+  try{autoSaveBudget();}catch(e){}
+  const payload={
+    app:'budget-familial', format:1, exportedAt:new Date().toISOString(),
+    allData, cats, descs, livrets, projects, safetyAmt:_safetyAmt
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const d=new Date(),z=n=>String(n).padStart(2,'0');
+  const name='budget-familial-sauvegarde-'+d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate())+'_'+z(d.getHours())+'h'+z(d.getMinutes())+'.json';
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=name;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+  bfToast('💾 Sauvegarde téléchargée : '+name,'ok');
+}
+function importBackup(input){
+  const file=input.files&&input.files[0];
+  input.value='';
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onerror=function(){bfToast('⚠ Impossible de lire le fichier','warn');};
+  reader.onload=function(){
+    let d;
+    try{d=JSON.parse(reader.result);}catch(e){bfToast('⚠ Fichier illisible : ce n\u2019est pas une sauvegarde valide','warn');return;}
+    if(!d||typeof d!=='object'||!d.allData||typeof d.allData!=='object'||Array.isArray(d.allData)){
+      bfToast('⚠ Ce fichier ne ressemble pas à une sauvegarde Budget Familial','warn');return;
+    }
+    const nbMois=Object.keys(d.allData).length;
+    const nbMvt=Object.values(d.allData).reduce((t,pd)=>t+((pd&&Array.isArray(pd.transactions))?pd.transactions.length:0),0);
+    const dateTxt=d.exportedAt?new Date(d.exportedAt).toLocaleString('fr-FR'):'date inconnue';
+    const msg='Restaurer la sauvegarde du '+dateTxt+' ?\n\n• '+nbMois+' mois de données\n• '+nbMvt+' mouvements\n\n⚠ Les données actuellement dans l\u2019application seront REMPLACÉES'
+      +(currentUser?' (la synchronisation en ligne sera aussi remplacée).':'.')
+      +'\n\nConseil : si vous n\u2019êtes pas sûr, faites d\u2019abord une sauvegarde de l\u2019état actuel (bouton 💾).';
+    if(!confirm(msg))return;
+    applyBackup(d);
+  };
+  reader.readAsText(file);
+}
+function applyBackup(d){
+  allData=d.allData;
+  if(Array.isArray(d.cats)&&d.cats.length)cats=d.cats;
+  if(d.descs&&typeof d.descs==='object'&&!Array.isArray(d.descs))descs=d.descs;
+  if(Array.isArray(d.livrets))livrets=d.livrets;
+  if(Array.isArray(d.projects))projects=d.projects;
+  if(typeof d.safetyAmt==='number')_safetyAmt=d.safetyAmt;
+  saveStorage();saveProjects();
+  ['revenusInputs','fixesInputs','variablesInputs','epargneInputs'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML='';});
+  _lastEpargneParents=-1; // évite que la restauration incrémente les enveloppes projet
+  buildInputs();loadPeriodInputs();buildTxSelects();
+  renderLivrets();renderLivretSettings();updateAll();updateLabel();
+  const se=document.getElementById('projSafetyAmt');if(se)se.value=_safetyAmt>0?_safetyAmt:'';
+  const pp=document.getElementById('projectsPanel');if(pp&&pp.style.display!=='none')renderProjects(_cachedEpTotal);
+  const ap=document.getElementById('annualPanel');if(ap&&ap.style.display!=='none')renderAnnual();
+  bfToast('✅ Sauvegarde restaurée : '+Object.keys(allData).length+' mois de données','ok');
+}
+// ─── END SAUVEGARDE ─────────────────────────────────────────
+
 
 const DEFAULT_CATS=[
   {id:'revenus',name:'Revenus',icon:'💰',color:'#6ee7b7',group:'revenu'},
@@ -1269,23 +1341,31 @@ function buildTxSelects(){buildDescSelect();buildCatSelect();}
 function buildDescSelect(){
   const sel=document.getElementById('txDesc');
   sel.innerHTML='<option value="">— Choisir une description —</option>';
+  let livretGroupDone=false;
   cats.forEach(cat=>{
-    let items;
+    let items,extraGroup=null;
     if(cat.group==='epargne'){
       const livretNames=livrets.map(l=>l.name);
       const manualDescs=(descs[cat.id]||[]).filter(d=>!livretNames.includes(d));
       items=[...livretNames,...manualDescs];
     } else if(cat.group==='revenu'){
       const livretAutoNames=livrets.map(l=>'Revenus '+l.name);
-      const manualDescs=(descs[cat.id]||[]).filter(d=>!livretAutoNames.includes(d));
-      items=[...livretAutoNames,...manualDescs];
+      items=(descs[cat.id]||[]).filter(d=>!livretAutoNames.includes(d));
+      // Retraits sur livrets : groupe à part, pour ne pas les confondre avec un salaire
+      if(!livretGroupDone&&livrets.length){
+        livretGroupDone=true;
+        extraGroup=document.createElement('optgroup');extraGroup.label='🏦 Retraits sur livrets (hors salaire)';
+        livrets.forEach(l=>{const o=document.createElement('option');o.value=cat.id;o.textContent='Retrait '+l.name;o.dataset.desc='Revenus '+l.name;extraGroup.appendChild(o);});
+      }
     } else {
       items=descs[cat.id]||[];
     }
-    if(!items.length)return;
-    const og=document.createElement('optgroup');og.label=cat.icon+' '+cat.name;
-    items.forEach(label=>{const o=document.createElement('option');o.value=cat.id;o.textContent=label;og.appendChild(o);});
-    sel.appendChild(og);
+    if(items.length){
+      const og=document.createElement('optgroup');og.label=cat.icon+' '+cat.name;
+      items.forEach(label=>{const o=document.createElement('option');o.value=cat.id;o.textContent=label;og.appendChild(o);});
+      sel.appendChild(og);
+    }
+    if(extraGroup)sel.appendChild(extraGroup);
   });
 }
 function buildCatSelect(){
@@ -1329,7 +1409,10 @@ function showAlert(msg,type){const z=document.getElementById('alertZone');if(!z)
 
 function showTab(name){['fixes','variables','epargne'].forEach(t=>{document.getElementById('tabContent_'+t).classList.toggle('active',t===name);document.getElementById('tab_'+t).classList.toggle('active',t===name);});}
 
-function txTotals(){const pd=getPd(),t={};cats.forEach(c=>t[c.id]=0);pd.transactions.forEach(tx=>{if(t[tx.catId]!==undefined)t[tx.catId]+=Math.abs(tx.amount);else t[tx.catId]=Math.abs(tx.amount);});return t;}
+// Un « retrait livret » (Revenus Livret X) est de l'argent qui vient de l'épargne : ce n'est PAS un salaire
+function isLivretWithdrawal(tx){const c=getCat(tx.catId);return c.group==='revenu'&&livrets.some(l=>'Revenus '+l.name===tx.desc);}
+function livretWithdrawalsTotal(pd){return (pd&&pd.transactions?pd.transactions:[]).filter(isLivretWithdrawal).reduce((t,tx)=>t+Math.abs(tx.amount),0);}
+function txTotals(){const pd=getPd(),t={};cats.forEach(c=>t[c.id]=0);pd.transactions.forEach(tx=>{if(isLivretWithdrawal(tx))return;if(t[tx.catId]!==undefined)t[tx.catId]+=Math.abs(tx.amount);else t[tx.catId]=Math.abs(tx.amount);});return t;}
 
 function updateAll(){
   const pd=getPd(),tx=txTotals(),hasTx=pd.transactions.length>0;
@@ -1338,7 +1421,8 @@ function updateAll(){
   const fix=hasTx?sg('fixes',true):sg('fixes',false);
   const varv=hasTx?sg('variables',true):sg('variables',false);
   const ep=hasTx?sg('epargne',true):sg('epargne',false);
-  const sol=rev-fix-varv-ep;
+  const livRev=livretWithdrawalsTotal(pd); // repris sur les livrets (hors revenus)
+  const sol=rev+livRev-fix-varv-ep;
   const pFix=rev>0?Math.round(fix/rev*100):0;
   const pVar=rev>0?Math.round(varv/rev*100):0;
   const tEp=rev>0?Math.round(ep/rev*100):0;
@@ -1354,7 +1438,7 @@ function updateAll(){
   document.getElementById('cVar').textContent=fmt(varv);
   document.getElementById('cEp').textContent=fmt(ep);
   document.getElementById('cSol').textContent=fmt(sol);
-  document.getElementById('cRevSub').textContent=hasTx&&bRev>0?'Prévu : '+fmt(bRev):'Salaires + autres';
+  document.getElementById('cRevSub').innerHTML=(hasTx&&bRev>0?'Prévu : '+fmt(bRev):'Salaires + autres')+(livRev>0?'<br><span style="color:var(--blue)">🏦 + '+fmt(livRev)+' repris des livrets (hors revenus)</span>':'');
   document.getElementById('cFixSub').innerHTML=hasTx&&bFix>0?'Prévu : '+fmt(bFix)+' · '+pctFix:(rev>0?pctFix+' des revenus':'Charges fixes');
   document.getElementById('cVarSub').innerHTML=hasTx&&bVar>0?'Prévu : '+fmt(bVar)+' · '+pctVar:(rev>0?pctVar+' des revenus':'Charges variables');
   document.getElementById('cEpSub').innerHTML=hasTx&&bEp>0?'Prévu : '+fmt(bEp)+' · Taux : '+pctEp:'Taux : '+pctEp;
@@ -1466,7 +1550,7 @@ function refreshSummaries(tx){
 function toggleAddForm(){const f=document.getElementById('addForm'),btn=document.getElementById('addBtn');const open=f.style.display==='none';f.style.display=open?'block':'none';btn.textContent=open?'− Annuler':'+ Ajouter';}
 function addTx(){
   const date=document.getElementById('txDate').value;
-  const descEl=document.getElementById('txDesc'),desc=descEl.options[descEl.selectedIndex]?.text||'';
+  const descEl=document.getElementById('txDesc'),selOpt=descEl.options[descEl.selectedIndex],desc=(selOpt&&selOpt.dataset&&selOpt.dataset.desc)||selOpt?.text||'';
   const catId=document.getElementById('txCat').value;
   const amount=parseFloat(document.getElementById('txAmt').value);
   if(!date||!desc||desc==='— Choisir une description —'||isNaN(amount)||amount===0){showAlert('⚠ Veuillez remplir tous les champs','warn');return;}
@@ -1506,9 +1590,9 @@ function renderTxTable(){
   const pd=getPd(),tbody=document.getElementById('txBody');
   if(!pd.transactions.length){tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px">Aucun mouvement enregistré</td></tr>';return;}
   tbody.innerHTML=pd.transactions.map((tx,i)=>{
-    const cat=getCat(tx.catId),isRev=cat.group==='revenu';
+    const cat=getCat(tx.catId),isRev=cat.group==='revenu',isLiv=isLivretWithdrawal(tx);
     const ds=new Date(tx.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
-    return '<tr><td style="color:var(--muted)">'+ds+'</td><td>'+tx.desc+'</td><td><span class="badge" style="background:'+cat.color+'22;color:'+cat.color+'">'+cat.icon+' '+cat.name+'</span></td><td style="text-align:right" class="'+(isRev?'pos':'neg')+'">'+(isRev?'+':'-')+fmt(Math.abs(tx.amount))+'</td><td style="text-align:right"><button onclick="deleteTx('+i+')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 6px">×</button></td></tr>';
+    return '<tr><td style="color:var(--muted)">'+ds+'</td><td>'+(isLiv?tx.desc.replace(/^Revenus /,'Retrait '):tx.desc)+'</td><td>'+(isLiv?'<span class="badge" style="background:rgba(96,165,250,.15);color:var(--blue)">🏦 Retrait livret</span>':'<span class="badge" style="background:'+cat.color+'22;color:'+cat.color+'">'+cat.icon+' '+cat.name+'</span>')+'</td><td style="text-align:right" class="'+(isRev?'pos':'neg')+'">'+(isRev?'+':'-')+fmt(Math.abs(tx.amount))+'</td><td style="text-align:right"><button onclick="deleteTx('+i+')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 6px">×</button></td></tr>';
   }).join('');
 }
 
@@ -1678,7 +1762,7 @@ function toggleAnnual(){
 }
 
 function getAnnualTotals(year){
-  const totals={rev:0,fix:0,varv:0,ep:0,budgetRev:0,budgetFix:0,budgetVar:0,budgetEp:0};
+  const totals={rev:0,fix:0,varv:0,ep:0,livRev:0,budgetRev:0,budgetFix:0,budgetVar:0,budgetEp:0};
   const catTotals={};
   cats.forEach(c=>{catTotals[c.id]={real:0,budget:0};});
   for(let m=1;m<=12;m++){
@@ -1686,7 +1770,7 @@ function getAnnualTotals(year){
     const pd=allData[key];if(!pd)continue;
     const hasTx=pd.transactions&&pd.transactions.length>0;
     const txMap={};cats.forEach(c=>txMap[c.id]=0);
-    if(pd.transactions)pd.transactions.forEach(tx=>{if(txMap[tx.catId]!==undefined)txMap[tx.catId]+=Math.abs(tx.amount);else txMap[tx.catId]=Math.abs(tx.amount);});
+    if(pd.transactions)pd.transactions.forEach(tx=>{if(isLivretWithdrawal(tx)){totals.livRev+=Math.abs(tx.amount);return;}if(txMap[tx.catId]!==undefined)txMap[tx.catId]+=Math.abs(tx.amount);else txMap[tx.catId]=Math.abs(tx.amount);});
     cats.forEach(cat=>{
       const bv=pd.budgets&&pd.budgets[cat.id]>0?pd.budgets[cat.id]:0;
       const rv=hasTx?(txMap[cat.id]||0):0;
@@ -1705,8 +1789,8 @@ function renderAnnual(){
   const year=currentYear;
   document.getElementById('annualYearLabel').textContent='Année '+year;
   const{totals,catTotals}=getAnnualTotals(year);
-  const{rev,fix,varv,ep}=totals;
-  const sol=rev-fix-varv-ep;
+  const{rev,fix,varv,ep,livRev}=totals;
+  const sol=rev+livRev-fix-varv-ep;
   const pFix=rev>0?Math.round(fix/rev*100):0;
   const pVar=rev>0?Math.round(varv/rev*100):0;
   const tEp=rev>0?Math.round(ep/rev*100):0;
@@ -1717,7 +1801,7 @@ function renderAnnual(){
   document.getElementById('aFix').textContent=fmt(fix);
   document.getElementById('aVar').textContent=fmt(varv);
   document.getElementById('aEp').textContent=fmt(ep);
-  document.getElementById('aRevSub').textContent='Cumul de l\'année '+year;
+  document.getElementById('aRevSub').innerHTML='Cumul de l\'année '+year+(livRev>0?'<br><span style="color:var(--blue)">🏦 + '+fmt(livRev)+' repris des livrets (hors revenus)</span>':'');
   document.getElementById('aFixSub').innerHTML='<span style="color:'+colFix+';font-weight:600">'+pFix+'%</span> des revenus';
   document.getElementById('aVarSub').innerHTML='<span style="color:'+colVar+';font-weight:600">'+pVar+'%</span> des revenus';
   document.getElementById('aEpSub').innerHTML='Taux : <span style="color:'+colEp+';font-weight:600">'+tEp+'%</span>';
@@ -1739,10 +1823,11 @@ function renderAnnual(){
     const pd=allData[key];
     const hasTx=pd&&pd.transactions&&pd.transactions.length>0;
     const txMap={};cats.forEach(c=>txMap[c.id]=0);
-    if(pd&&pd.transactions)pd.transactions.forEach(tx=>{if(txMap[tx.catId]!==undefined)txMap[tx.catId]+=Math.abs(tx.amount);else txMap[tx.catId]=Math.abs(tx.amount);});
+    if(pd&&pd.transactions)pd.transactions.forEach(tx=>{if(isLivretWithdrawal(tx))return;if(txMap[tx.catId]!==undefined)txMap[tx.catId]+=Math.abs(tx.amount);else txMap[tx.catId]=Math.abs(tx.amount);});
+    const mLiv=livretWithdrawalsTotal(pd);
     function sg(g){return cats.filter(c=>c.group===g).reduce((s,c)=>s+(hasTx?(txMap[c.id]||0):(pd&&pd.budgets&&pd.budgets[c.id]>0?pd.budgets[c.id]:0)),0);}
-    const mRev=sg('revenu'),mFix=sg('fixes'),mVar=sg('variables'),mEp=sg('epargne'),mSol=mRev-mFix-mVar-mEp;
-    const isEmpty=!pd||(!hasTx&&mRev===0&&mFix===0&&mVar===0&&mEp===0);
+    const mRev=sg('revenu'),mFix=sg('fixes'),mVar=sg('variables'),mEp=sg('epargne'),mSol=mRev+mLiv-mFix-mVar-mEp;
+    const isEmpty=!pd||(!hasTx&&mRev===0&&mFix===0&&mVar===0&&mEp===0&&mLiv===0);
     const card=document.createElement('div');card.className='amonth-card';
     const isCurrent=(m===currentMonth);
     if(isCurrent)card.style.borderColor='var(--blue)';
@@ -1752,6 +1837,7 @@ function renderAnnual(){
         ['🔒 Fixes',mFix,'var(--red)'],
         ['🔄 Variables',mVar,'var(--orange)'],
         ['🏦 Épargne',mEp,'var(--yellow)'],
+        ...(mLiv>0?[['↩️ Repris livrets',mLiv,'var(--blue)']]:[]),
         ['⚖️ Solde',mSol,mSol>=0?'var(--green)':'var(--red)'],
       ].map(([lbl,val,col])=>'<div class="amonth-row"><span class="amonth-label">'+lbl+'</span><span class="amonth-val" style="color:'+col+'">'+fmt(val)+'</span></div>').join(''));
     grid.appendChild(card);
