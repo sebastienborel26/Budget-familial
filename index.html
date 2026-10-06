@@ -786,7 +786,6 @@ header{padding:32px 40px 0;width:100%;display:flex;justify-content:space-between
       <div class="card-label">⚖️ Solde du mois</div>
       <div class="card-amount" id="cSol">0 €</div>
       <div class="card-sub" id="cSolSub">Revenus − Charges</div>
-      <div id="cForecast" style="display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);"></div>
       <div class="pbar-wrap"><div class="pbar" style="background:var(--blue);width:50%"></div></div>
     </div>
   </div>
@@ -1444,8 +1443,8 @@ function updateAll(){
   document.getElementById('cVarSub').innerHTML=hasTx&&bVar>0?'Prévu : '+fmt(bVar)+' · '+pctVar:(rev>0?pctVar+' des revenus':'Charges variables');
   document.getElementById('cEpSub').innerHTML=hasTx&&bEp>0?'Prévu : '+fmt(bEp)+' · Taux : '+pctEp:'Taux : '+pctEp;
   document.getElementById('cSol').style.color=sol>=0?'var(--green)':'var(--red)';
-  document.getElementById('cSolSub').textContent=sol>=0?'✓ Équilibre positif':'⚠ Dépassement';
-  renderForecast(tx,livRev);
+  const solPrev=forecastSolde(tx,livRev);
+  document.getElementById('cSolSub').innerHTML=(solPrev!==null?'Prévu : <span style="color:'+(solPrev>=0?'var(--green)':'var(--red)')+';font-weight:600">'+fmt(solPrev)+'</span> · ':'')+(sol>=0?'✓ Équilibre positif':'⚠ Dépassement');
   const maxFix=rev*0.50,maxVar=rev*0.30,maxEp=rev*0.20;
   const pFixBar=document.getElementById('pFix'),pVarBar=document.getElementById('pVar'),pEpBar=document.getElementById('pEp');
   pFixBar.style.width=maxFix>0?Math.min(100,fix/maxFix*100)+'%':'0%';
@@ -1462,25 +1461,13 @@ function updateAll(){
 }
 
 
-// Prévisionnel ajusté (mois en cours) : par catégorie, on retient le plus grand entre le prévu et le réel.
+// Solde prévisionnel ajusté (mois en cours) : par catégorie, on retient le plus grand entre le prévu et le réel.
 // Une dépense réelle sans prévisionnel est donc comptabilisée telle quelle (prévu = 0).
-function renderForecast(tx,livRev){
-  const box=document.getElementById('cForecast');if(!box)return;
+function forecastSolde(tx,livRev){
   const now=new Date();
-  const isCurrent=currentMonth===now.getMonth()+1&&currentYear===now.getFullYear();
-  if(!isCurrent){box.style.display='none';box.innerHTML='';return;}
+  if(!(currentMonth===now.getMonth()+1&&currentYear===now.getFullYear()))return null;
   function adj(g){return cats.filter(c=>c.group===g).reduce((s,c)=>s+Math.max(getV(c.id),tx[c.id]||0),0);}
-  const aFix=adj('fixes'),aVar=adj('variables'),aEp=adj('epargne'),aRev=adj('revenu')+(livRev||0);
-  const aDep=aFix+aVar;
-  const aSol=aRev-aDep-aEp;
-  const row=(l,v,c)=>'<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-top:3px;"><span style="color:var(--muted)">'+l+'</span><span style="font-weight:600;color:'+c+'">'+fmt(v)+'</span></div>';
-  box.innerHTML=
-    '<div class="card-label" style="margin-bottom:6px;">📈 Prévisionnel ajusté du mois</div>'
-    +row('Dépenses prévues (fixes + variables)',aDep,'var(--red)')
-    +'<div style="font-size:10px;color:var(--muted);margin-top:1px;">Fixes '+fmt(aFix)+' · Variables '+fmt(aVar)+'</div>'
-    +row('Épargne prévue',aEp,'var(--yellow)')
-    +row('Solde prévisionnel',aSol,aSol>=0?'var(--green)':'var(--red)');
-  box.style.display='block';
+  return adj('revenu')+(livRev||0)-adj('fixes')-adj('variables')-adj('epargne');
 }
 
 function autoSaveBudget(){const pd=getPd();cats.forEach(cat=>{const el=document.getElementById('inp_'+cat.id);if(el)pd.budgets[cat.id]=parseFloat(el.value)||0;});saveStorage();}
