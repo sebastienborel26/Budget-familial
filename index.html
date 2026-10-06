@@ -1396,7 +1396,7 @@ function loadPeriodInputs(){
     const el=document.getElementById('inp_'+cat.id);if(!el)return;
     if(pd.budgets[cat.id]>0){
       el.value=pd.budgets[cat.id];
-    } else if((cat.group==='fixes'||cat.group==='epargne'||cat.group==='revenu')&&prevPd&&prevPd.budgets[cat.id]>0){
+    } else if((cat.group==='fixes'||cat.group==='variables'||cat.group==='epargne'||cat.group==='revenu')&&prevPd&&prevPd.budgets[cat.id]>0){
       el.value=prevPd.budgets[cat.id];
       pd.budgets[cat.id]=prevPd.budgets[cat.id];
     } else {
